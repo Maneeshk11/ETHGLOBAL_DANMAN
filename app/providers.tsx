@@ -21,15 +21,11 @@ export const config = createConfig({
     arbitrumSepolia,
   ],
   transports: {
-    [sepolia.id]: http("https://rpc.ankr.com/eth_sepolia", {
-      timeout: 10000,
-      retryCount: 3,
-      retryDelay: 1000,
-    }),
-    [LOCAL_CHAIN.id]: http("http://127.0.0.1:8545"),
-    [mainnet.id]: http("https://rpc.ankr.com/eth"),
-    [arbitrum.id]: http("https://rpc.ankr.com/arbitrum"),
-    [arbitrumSepolia.id]: http("https://rpc.ankr.com/arbitrum_sepolia"),
+    [sepolia.id]: http(),
+    [LOCAL_CHAIN.id]: http(),
+    [mainnet.id]: http(),
+    [arbitrum.id]: http(),
+    [arbitrumSepolia.id]: http(),
   },
   // Enable persistence and auto-connect
   ssr: false, // Disable SSR for wallet connections
@@ -43,6 +39,8 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         environmentId: "6f1b3b27-8d20-4360-bf9b-20c025ef505b",
         walletConnectors: [EthereumWalletConnectors],
         initialAuthenticationMode: "connect-only",
+        // Enable auto-connect to persist wallet connections
+        appName: "Block Bazaar",
       }}
     >
       <WagmiProvider config={config}>

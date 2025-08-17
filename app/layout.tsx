@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { Outfit, Fira_Code, Playfair_Display } from "next/font/google";
+import { Fira_Code, Outfit, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
 import { Toaster } from "@/components/ui/sonner";
+import { WalletAutoConnect } from "./components/WalletAutoConnect";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -27,16 +28,19 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en" className="dark">
       <body
         className={`${outfit.variable} ${firaCode.variable} ${playfairDisplay.variable} antialiased font-sans`}
       >
-        <Providers>{children}</Providers>
-        <Toaster />
+        <Providers>
+          <WalletAutoConnect />
+          {children}
+          <Toaster position="top-right" />
+        </Providers>
       </body>
     </html>
   );
