@@ -27,8 +27,18 @@ import {
   Users,
   Package,
   ArrowLeftRight,
+  ShoppingCart,
+  Loader2,
 } from "lucide-react";
 import TokenSwapModal from "./TokenSwapModal";
+import { 
+  getAllProductsFromStore, 
+  purchaseProductFromStore, 
+  waitForTransaction,
+  formatPrice,
+  Product 
+} from "../../lib/storeService";
+import { useAccount } from "wagmi";
 
 interface StoreInfo {
   name: string;
@@ -60,12 +70,24 @@ export default function StoreDetailsModal({
   ownerAddress,
   storeInfo,
 }: StoreDetailsModalProps) {
+  const { address } = useAccount();
   const [loading, setLoading] = useState(false);
   const [detailedInfo, setDetailedInfo] = useState<StoreInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
-
+  
   // Swap modal state
   const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
+  
+  // Products state
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [productError, setProductError] = useState<string | null>(null);
+  
+  // Purchase state
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [purchasingProductId, setPurchasingProductId] = useState<bigint | null>(null);
+  const [purchaseQuantity, setPurchaseQuantity] = useState<{[key: string]: number}>({});
+  const [purchaseTxHash, setPurchaseTxHash] = useState<string | null>(null);
 
   // Copy to clipboard function
   const copyToClipboard = (text: string) => {
@@ -77,6 +99,7 @@ export default function StoreDetailsModal({
   useEffect(() => {
     if (isOpen && storeAddress) {
       loadDetailedStoreInfo();
+      loadProducts();
     }
   }, [isOpen, storeAddress]);
 
@@ -120,6 +143,73 @@ export default function StoreDetailsModal({
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadProducts = async () => {
+    setIsLoadingProducts(true);
+    setProductError(null);
+
+    try {
+      console.log("🛒 Loading products for store:", storeAddress);
+      const storeProducts = await getAllProductsFromStore(storeAddress);
+      setProducts(storeProducts);
+      console.log(`✅ Loaded ${storeProducts.length} products`);
+    } catch (err) {
+      console.error("❌ Failed to load products:", err);
+      setProductError("Failed to load products from this store");
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  };
+
+  const handlePurchase = async (product: Product, quantity: number) => {
+    if (!address || quantity <= 0) return;
+
+    setIsPurchasing(true);
+    setPurchasingProductId(product.id);
+    setPurchaseTxHash(null);
+
+    try {
+      console.log("🛒 Purchasing product:", {
+        productId: product.id.toString(),
+        quantity,
+        price: product.price.toString(),
+        totalCost: (product.price * BigInt(quantity)).toString(),
+      });
+
+      const hash = await purchaseProductFromStore(
+        storeAddress,
+        product.id,
+        BigInt(quantity),
+        address
+      );
+
+      setPurchaseTxHash(hash);
+      
+      // Wait for transaction confirmation
+      await waitForTransaction(hash as `0x${string}`);
+      
+      // Reload products to update stock
+      await loadProducts();
+      
+      console.log("✅ Purchase completed successfully!");
+    } catch (err) {
+      console.error("❌ Purchase failed:", err);
+    } finally {
+      setIsPurchasing(false);
+      setPurchasingProductId(null);
+    }
+  };
+
+  const updateQuantity = (productId: string, quantity: number) => {
+    setPurchaseQuantity(prev => ({
+      ...prev,
+      [productId]: Math.max(1, quantity),
+    }));
+  };
+
+  const getQuantity = (productId: string): number => {
+    return purchaseQuantity[productId] || 1;
   };
 
   const formatAddress = (address: string) => {
@@ -330,12 +420,12 @@ export default function StoreDetailsModal({
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          {detailedInfo.tokenBalance && (
+                        {detailedInfo.tokenBalance && (
                             <Badge variant="outline" className="text-xs">
                               Balance: {formatBigInt(detailedInfo.tokenBalance)}
                             </Badge>
-                          )}
-                          {detailedInfo.tokenTotalSupply && (
+                        )}
+                        {detailedInfo.tokenTotalSupply && (
                             <Badge variant="outline" className="text-xs">
                               Supply:{" "}
                               {(
@@ -343,14 +433,14 @@ export default function StoreDetailsModal({
                                 10 ** 24
                               ).toFixed(2)}
                             </Badge>
-                          )}
-                          {!detailedInfo.tokenBalance &&
-                            !detailedInfo.tokenTotalSupply && (
+                        )}
+                        {!detailedInfo.tokenBalance &&
+                          !detailedInfo.tokenTotalSupply && (
                               <span className="text-xs text-muted-foreground">
                                 Limited token data due to RPC constraints
                               </span>
                             )}
-                        </div>
+                            </div>
                       </>
                     ) : (
                       <p className="text-sm text-muted-foreground">
@@ -468,7 +558,7 @@ export default function StoreDetailsModal({
                       <div className="w-12 h-12 mx-auto bg-muted/50 rounded-full flex items-center justify-center mb-4">
                         <Coins className="h-6 w-6 text-muted-foreground" />
                       </div>
-                      <p className="text-muted-foreground">
+                    <p className="text-muted-foreground">
                         Token information not available
                       </p>
                       <p className="text-sm text-muted-foreground mt-1">
@@ -483,19 +573,179 @@ export default function StoreDetailsModal({
             <TabsContent value="products" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
                     <Package className="h-4 w-4" />
-                    Products
+                      Products ({products.length})
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={loadProducts}
+                      disabled={isLoadingProducts}
+                    >
+                      {isLoadingProducts ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Refresh"
+                      )}
+                    </Button>
                   </CardTitle>
                   <CardDescription>
-                    Products available in this store
+                    Browse and purchase products from this store using PYUSD
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground">
-                    Product listing and management features will be available
-                    here.
-                  </p>
+                  {isLoadingProducts ? (
+                    <div className="text-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+                      <p className="text-muted-foreground">Loading products...</p>
+                    </div>
+                  ) : productError ? (
+                    <div className="text-center py-8">
+                      <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                      <p className="text-red-600 mb-2">{productError}</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={loadProducts}
+                      >
+                        Try Again
+                      </Button>
+                    </div>
+                  ) : products.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                      <p className="text-muted-foreground mb-2">No products available</p>
+                      <p className="text-sm text-muted-foreground">
+                        This store hasn't added any products yet
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4">
+                      {products.map((product) => {
+                        const productIdStr = product.id.toString();
+                        const quantity = getQuantity(productIdStr);
+                        const totalPrice = product.price * BigInt(quantity);
+                        const isCurrentlyPurchasing = isPurchasing && purchasingProductId === product.id;
+                        
+                        return (
+                          <Card key={productIdStr} className="border-2 border-border/50">
+                            <CardContent className="p-4">
+                              <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                                {/* Product Info */}
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <h4 className="font-medium">{product.name}</h4>
+                                    <Badge variant={product.isActive ? "default" : "secondary"}>
+                                      {product.isActive ? "Active" : "Inactive"}
+                                    </Badge>
+                                    {product.stock === BigInt(0) && (
+                                      <Badge variant="destructive">Out of Stock</Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mb-3">
+                                    {product.description}
+                                  </p>
+                                  <div className="flex items-center gap-4 text-sm">
+                                    <div>
+                                      <span className="text-muted-foreground">Price: </span>
+                                      <span className="font-medium">
+                                        {formatPrice(product.price)} PYUSD
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground">Stock: </span>
+                                      <span className="font-medium">
+                                        {product.stock.toString()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Purchase Controls */}
+                                {product.isActive && product.stock > BigInt(0) && address ? (
+                                  <div className="flex flex-col gap-2 min-w-[200px]">
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => updateQuantity(productIdStr, quantity - 1)}
+                                        disabled={quantity <= 1 || isCurrentlyPurchasing}
+                                        className="w-8 h-8 p-0"
+                                      >
+                                        -
+                                      </Button>
+                                      <span className="w-12 text-center text-sm">
+                                        {quantity}
+                                      </span>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => updateQuantity(productIdStr, quantity + 1)}
+                                        disabled={BigInt(quantity) >= product.stock || isCurrentlyPurchasing}
+                                        className="w-8 h-8 p-0"
+                                      >
+                                        +
+                                      </Button>
+                                    </div>
+                                    <div className="text-center text-sm">
+                                      <span className="text-muted-foreground">Total: </span>
+                                      <span className="font-medium">
+                                        {formatPrice(totalPrice)} PYUSD
+                                      </span>
+                                    </div>
+                                    <Button
+                                      onClick={() => handlePurchase(product, quantity)}
+                                      disabled={isCurrentlyPurchasing}
+                                      size="sm"
+                                      className="w-full"
+                                    >
+                                      {isCurrentlyPurchasing ? (
+                                        <>
+                                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                          Purchasing...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <ShoppingCart className="h-4 w-4 mr-2" />
+                                          Buy Now
+                                        </>
+                                      )}
+                                    </Button>
+                                  </div>
+                                ) : !address ? (
+                                  <div className="min-w-[200px] text-center text-sm text-muted-foreground">
+                                    Connect wallet to purchase
+                                  </div>
+                                ) : (
+                                  <div className="min-w-[200px] text-center text-sm text-muted-foreground">
+                                    {!product.isActive && "Product inactive"}
+                                    {product.stock === BigInt(0) && "Out of stock"}
+                                  </div>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Purchase Transaction Status */}
+                  {purchaseTxHash && (
+                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">Purchase in progress...</div>
+                          <div className="text-xs text-muted-foreground font-mono">
+                            {purchaseTxHash.slice(0, 10)}...{purchaseTxHash.slice(-8)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

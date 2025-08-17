@@ -1087,7 +1087,42 @@ export async function getUserTokenBalance(
 // ===== PURCHASE FUNCTIONS =====
 
 /**
- * Purchase a product
+ * Purchase a product from a specific store
+ */
+export async function purchaseProductFromStore(
+  storeAddress: Address,
+  productId: bigint,
+  quantity: bigint,
+  walletAddress: Address
+): Promise<string> {
+  try {
+    const walletClient = getWalletClient();
+
+    console.log("🛒 Purchasing product from store:", {
+      storeAddress,
+      productId: productId.toString(),
+      quantity: quantity.toString(),
+      walletAddress,
+    });
+
+    const hash = await walletClient.writeContract({
+      address: storeAddress,
+      abi: STORE_CONTRACT_ABI,
+      functionName: "purchaseProduct",
+      args: [productId, quantity],
+      account: walletAddress,
+    });
+
+    console.log("✅ Purchase transaction submitted:", hash);
+    return hash;
+  } catch (error) {
+    console.error("❌ Error purchasing product from store:", storeAddress, error);
+    throw error;
+  }
+}
+
+/**
+ * Purchase a product (legacy function for single store)
  */
 export async function purchaseProduct(
   productId: bigint,
