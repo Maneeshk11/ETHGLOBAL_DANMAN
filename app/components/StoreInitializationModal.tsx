@@ -23,7 +23,7 @@ import { toast } from "sonner";
 interface StoreInitData {
   storeName: string;
   tokenSymbol: string;
-  pyusdLiquidity: string; // PYUSD amount for liquidity (as string for input handling)
+  initialTokenSupply: string; // Initial token supply as string for input handling
 }
 
 interface StoreInitializationModalProps {
@@ -40,11 +40,12 @@ export default function StoreInitializationModal({
   walletAddress,
 }: StoreInitializationModalProps) {
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState<StoreInitData>({
+  const [formData, setFormData] = useState({
     storeName: "",
     tokenSymbol: "",
-    pyusdLiquidity: "20", // Default to 20 PYUSD
+    initialTokenSupply: "1000", // Default value
   });
+  const [pyusdAmount, setPyusdAmount] = useState(20); // Default to 20 PYUSD
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,16 +53,15 @@ export default function StoreInitializationModal({
     if (
       !formData.storeName ||
       !formData.tokenSymbol ||
-      !formData.pyusdLiquidity
+      !formData.initialTokenSupply ||
+      pyusdAmount <= 0
     ) {
       toast.error("Please fill in all required fields");
       return;
     }
 
-    // Validate PYUSD liquidity amount
-    const pyusdAmount = parseFloat(formData.pyusdLiquidity);
-    if (isNaN(pyusdAmount) || pyusdAmount <= 0) {
-      toast.error("PYUSD liquidity must be a positive number");
+    if (formData.storeName.length < 2) {
+      toast.error("Store name must be at least 2 characters");
       return;
     }
 
@@ -93,7 +93,8 @@ export default function StoreInitializationModal({
       // Smart defaults for simplified form
       const storeDescription = `Welcome to ${formData.storeName}! Your one-stop shop for quality products.`;
       const tokenName = `${formData.storeName} Token`;
-      const initialSupply = BigInt(25) * BigInt(10 ** 18); // 25 tokens (all go to liquidity pool)
+      const initialSupply =
+        BigInt(formData.initialTokenSupply) * BigInt(10 ** 18); // User-specified token supply
       const pyusdLiquidity = BigInt(Math.floor(pyusdAmount * 1e6)); // Convert PYUSD to wei (6 decimals)
 
       const uniswapRouter = getUniswapV2RouterAddress();
@@ -143,8 +144,9 @@ export default function StoreInitializationModal({
       setFormData({
         storeName: "",
         tokenSymbol: "",
-        pyusdLiquidity: "20", // Reset to default
+        initialTokenSupply: "1000", // Reset to default
       });
+      setPyusdAmount(20); // Reset PYUSD amount to default
 
       onSuccess(storeAddress);
       onClose();
@@ -218,6 +220,26 @@ export default function StoreInitializationModal({
               </div>
             </div>
 
+            {/* Initial Token Supply Input */}
+            <div>
+              <Label htmlFor="initialTokenSupply">Initial Token Supply *</Label>
+              <Input
+                id="initialTokenSupply"
+                type="number"
+                min="1"
+                value={formData.initialTokenSupply}
+                onChange={(e) =>
+                  handleInputChange("initialTokenSupply", e.target.value)
+                }
+                placeholder="1000"
+                required
+                disabled={loading}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Total number of tokens to create (will go to liquidity pool)
+              </p>
+            </div>
+
             {/* PYUSD Liquidity Input */}
             <div>
               <Label htmlFor="pyusdLiquidity">PYUSD Liquidity *</Label>
@@ -226,9 +248,9 @@ export default function StoreInitializationModal({
                 type="number"
                 step="0.01"
                 min="0.01"
-                value={formData.pyusdLiquidity}
+                value={pyusdAmount}
                 onChange={(e) =>
-                  handleInputChange("pyusdLiquidity", e.target.value)
+                  setPyusdAmount(parseFloat(e.target.value) || 0)
                 }
                 placeholder="20.00"
                 required
@@ -246,10 +268,13 @@ export default function StoreInitializationModal({
               </h5>
               <ul className="text-xs text-muted-foreground space-y-1">
                 <li>• Auto-generated store description</li>
-                <li>• 25 initial tokens (all go to Uniswap liquidity pool)</li>
                 <li>
-                  • PYUSD trading pair with {formData.pyusdLiquidity || "20"}{" "}
-                  PYUSD liquidity
+                  • {formData.initialTokenSupply || "1000"} initial tokens (all
+                  go to Uniswap liquidity pool)
+                </li>
+                <li>
+                  • PYUSD trading pair with {pyusdAmount || "20"} PYUSD
+                  liquidity
                 </li>
                 <li>• Ready-to-trade token on Uniswap V2</li>
               </ul>

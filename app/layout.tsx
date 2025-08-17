@@ -20,8 +20,9 @@ const playfairDisplay = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Token Shop",
-  description: "Create and manage your retail tokens",
+  title: "Block Bazaar",
+  description:
+    "Discover and trade retail tokens in the decentralized marketplace",
 };
 
 export default function RootLayout({

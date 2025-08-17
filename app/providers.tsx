@@ -14,19 +14,25 @@ const queryClient = new QueryClient();
 // Create Wagmi config for Dynamic
 export const config = createConfig({
   chains: [
-    LOCAL_CHAIN, // Add local chain first for development
+    sepolia, // Always include Sepolia first since contracts are deployed there
+    LOCAL_CHAIN, // Add local chain for development
     mainnet,
     arbitrum,
     arbitrumSepolia,
-    ...(process.env.NODE_ENV === "development" ? [sepolia] : []),
   ],
   transports: {
-    [LOCAL_CHAIN.id]: http(),
-    [mainnet.id]: http(),
-    [arbitrum.id]: http(),
-    [arbitrumSepolia.id]: http(),
-    [sepolia.id]: http(),
+    [sepolia.id]: http("https://rpc.ankr.com/eth_sepolia", {
+      timeout: 10000,
+      retryCount: 3,
+      retryDelay: 1000,
+    }),
+    [LOCAL_CHAIN.id]: http("http://127.0.0.1:8545"),
+    [mainnet.id]: http("https://rpc.ankr.com/eth"),
+    [arbitrum.id]: http("https://rpc.ankr.com/arbitrum"),
+    [arbitrumSepolia.id]: http("https://rpc.ankr.com/arbitrum_sepolia"),
   },
+  // Enable persistence and auto-connect
+  ssr: false, // Disable SSR for wallet connections
 });
 
 export default function Providers({ children }: { children: React.ReactNode }) {

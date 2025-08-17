@@ -1,6 +1,6 @@
 # Smart Contract Integration Setup
 
-## 🚀 Your Token Shop is now ready to connect to your deployed contract!
+## 🚀 Your Block Bazaar is now ready to connect to your deployed contract!
 
 ### What's Been Set Up
 
@@ -102,4 +102,4 @@ event TokenCreated(
 3. Customize the ABI if your contract interface is different
 4. Add more functionality as needed
 
-Your Token Shop is now ready for blockchain integration! 🎉
+Your Block Bazaar is now ready for blockchain integration! 🎉

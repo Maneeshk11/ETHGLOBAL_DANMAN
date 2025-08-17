@@ -1,6 +1,6 @@
 "use client";
 
-import { useAccount } from "wagmi";
+import { useWalletPersistence } from "../../lib/useWalletPersistence";
 import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,11 +20,8 @@ import {
 import { WalletHeader } from "../components/WalletHeader";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import {
-  TokenConfigurationModal,
-  TokenConfig,
-} from "../components/TokenConfigurationModal";
-import { getAllTokensInfo, TokenInfo } from "../../lib/contractService";
+import { CreateProductModal } from "../components/CreateProductModal";
+// Token functionality removed - now focuses on product management
 import { Address } from "viem";
 import {
   getOwnerStores,
@@ -42,11 +39,9 @@ import StoreInitializationModal from "../components/StoreInitializationModal";
 import ProductCreationModal from "../components/ProductCreationModal";
 
 export default function DashboardPage() {
-  const { isConnected, isConnecting, address } = useAccount();
+  const { isConnected, isConnecting, address } = useWalletPersistence();
   const router = useRouter();
-  const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
-  const [tokenCreationSuccess, setTokenCreationSuccess] =
-    useState<Address | null>(null);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
 
   // Products state
   const [storeProducts, setStoreProducts] = useState<Product[]>([]);
@@ -69,13 +64,11 @@ export default function DashboardPage() {
     router.push("/onboarding");
   };
 
-  const handleTokenSubmit = (
-    tokenConfig: TokenConfig,
-    tokenAddress?: Address
-  ) => {
-    console.log("Token created successfully:", tokenConfig, tokenAddress);
-    if (tokenAddress) {
-      setTokenCreationSuccess(tokenAddress);
+  const handleProductSuccess = (productId: number) => {
+    console.log("Product created successfully:", productId);
+    // Refresh the product list if a store is selected
+    if (selectedStore) {
+      loadStoreProducts();
     }
   };
 
@@ -166,22 +159,14 @@ export default function DashboardPage() {
     }
   }, [selectedStore]);
 
-  // Clear success message after 5 seconds
-  useEffect(() => {
-    if (tokenCreationSuccess) {
-      const timer = setTimeout(() => {
-        setTokenCreationSuccess(null);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [tokenCreationSuccess]);
+  // Product creation success is handled in the modal callback
 
   // Show login interface when not connected
   if (!isConnected && !isConnecting) {
     return (
       <div className="min-h-screen bg-background">
         {/* Header without wallet info */}
-        <WalletHeader title="Token Shop" />
+        <WalletHeader title="Block Bazaar" />
 
         {/* Login Content */}
         <main className="container mx-auto px-4 py-8">
@@ -189,7 +174,7 @@ export default function DashboardPage() {
             <Card className="w-full max-w-md">
               <CardHeader className="text-center">
                 <CardTitle className="text-2xl">
-                  Welcome to Token Shop
+                  Welcome to Block Bazaar
                 </CardTitle>
                 <CardDescription>
                   Connect your wallet or create an account to get started with
@@ -221,7 +206,7 @@ export default function DashboardPage() {
                     variant="outline"
                     className="w-full"
                   >
-                    Sign Up for Token Shop
+                    Sign Up for Block Bazaar
                   </Button>
                 </div>
 
@@ -241,7 +226,7 @@ export default function DashboardPage() {
   if (isConnecting) {
     return (
       <div className="min-h-screen bg-background">
-        <WalletHeader title="Token Shop Dashboard" />
+        <WalletHeader title="Block Bazaar Dashboard" />
         <main className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
             <Card className="w-full max-w-md">
@@ -262,7 +247,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header with wallet info */}
-      <WalletHeader title="Token Shop Dashboard" />
+      <WalletHeader title="Block Bazaar Dashboard" />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
@@ -346,15 +331,7 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Success Message */}
-        {tokenCreationSuccess && (
-          <div className="mb-6 p-4 rounded-md bg-green-500/20 border border-green-500/30 text-green-400">
-            <p className="font-medium">Token created successfully! 🎉</p>
-            <p className="text-sm text-green-300">
-              Contract Address: {tokenCreationSuccess}
-            </p>
-          </div>
-        )}
+        {/* Success messages are now handled by toast notifications */}
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {/* Store Details Card */}
@@ -385,7 +362,7 @@ export default function DashboardPage() {
                 </>
               ) : (
                 <>
-                  <CardTitle>Welcome to Your Token Shop! 🎉</CardTitle>
+                  <CardTitle>Welcome to Your Block Bazaar! 🎉</CardTitle>
                   <CardDescription>
                     Select a store above to view its details, or create your
                     first store to get started.
@@ -473,11 +450,17 @@ export default function DashboardPage() {
                     </Button>
                   </div>
                 </div>
-              ) : (
+              ) : selectedStore ? (
                 <div className="flex flex-col sm:flex-row gap-4">
-                  <Button onClick={() => setIsTokenModalOpen(true)}>
-                    Create New Token
+                  <Button onClick={() => setIsProductModalOpen(true)}>
+                    Add New Product
                   </Button>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">
+                    Select a store from the dropdown above to manage products
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -615,12 +598,16 @@ export default function DashboardPage() {
         </div>
       </main>
 
-      {/* Token Configuration Modal */}
-      <TokenConfigurationModal
-        isOpen={isTokenModalOpen}
-        onClose={() => setIsTokenModalOpen(false)}
-        onSubmit={handleTokenSubmit}
-      />
+      {/* Create Product Modal */}
+      {selectedStore && (
+        <CreateProductModal
+          isOpen={isProductModalOpen}
+          onClose={() => setIsProductModalOpen(false)}
+          onSuccess={handleProductSuccess}
+          storeAddress={selectedStore}
+          storeName={storeInfo?.name}
+        />
+      )}
 
       {/* Store Creation Modal */}
       <StoreInitializationModal

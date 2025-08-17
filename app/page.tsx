@@ -1,19 +1,60 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAccount } from "wagmi";
 import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
+import { getAllStoresWithInfo } from "../lib/retailFactoryService";
+import { Address } from "viem";
+
+type StoreWithInfo = {
+  owner: Address;
+  store: Address;
+  storeInfo?: {
+    name: string;
+    description: string;
+    isActive: boolean;
+    tokenAddress: Address;
+  };
+};
 
 export default function Home() {
   const { isConnected, address } = useAccount();
   const router = useRouter();
+  const [allStores, setAllStores] = useState<StoreWithInfo[]>([]);
+  const [isLoadingStores, setIsLoadingStores] = useState(false);
 
   const handleRetailLogin = () => {
     router.push("/dashboard");
   };
+
+  const loadAllStores = async () => {
+    try {
+      setIsLoadingStores(true);
+      console.log("🏪 Loading all retail stores...");
+      const stores = await getAllStoresWithInfo();
+      setAllStores(stores);
+      console.log(`✅ Loaded ${stores.length} stores`);
+    } catch (error) {
+      console.error("❌ Failed to load stores:", error);
+    } finally {
+      setIsLoadingStores(false);
+    }
+  };
+
+  // Load stores on component mount
+  useEffect(() => {
+    loadAllStores();
+  }, []);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
@@ -21,9 +62,9 @@ export default function Home() {
         {/* Navigation Header - Fixed */}
         <div className="flex items-center justify-between px-4 pb-4 border-b border-border flex-shrink-0">
           <div className="flex flex-col space-x-4">
-            <span className="text-2xl font-bold">Token Shop</span>
+            <span className="text-2xl font-bold">Block Bazaar</span>
             <span className="text-sm text-muted-foreground">
-              Buy & Discover Retail Tokens
+              The Decentralized Retail Marketplace
             </span>
           </div>
           <div className="flex items-center space-x-3">
@@ -43,107 +84,134 @@ export default function Home() {
         </div>
 
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Tabs defaultValue="discover" className="w-full h-full flex flex-col">
+          <Tabs defaultValue="stores" className="w-full h-full flex flex-col">
             {/* Tab Navigation - Fixed */}
             <TabsList className="grid w-full grid-cols-3 flex-shrink-0 mx-6">
-              <TabsTrigger value="discover">Discover</TabsTrigger>
+              <TabsTrigger value="stores">Browse Stores</TabsTrigger>
               <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
               <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
 
             {/* Scrollable Content Area */}
             <div className="flex-1 overflow-y-auto px-6 pb-4">
-              <TabsContent value="discover" className="space-y-6 mt-6">
+              <TabsContent value="stores" className="space-y-6 mt-6">
                 <div className="space-y-4">
-                  <h2 className="text-xl font-semibold">
-                    Discover Retail Shops
-                  </h2>
-                  <p className="text-muted-foreground">
-                    Search for retail shops and explore their tokens
-                  </p>
-                  <div className="space-y-3">
-                    <input
-                      type="text"
-                      placeholder="Enter shop name or address"
-                      className="w-full border border-border rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    />
-                    <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
-                      Search Shops
-                    </Button>
+                  <div className="flex flex-col space-y-2">
+                    <span className="text-xl font-semibold">
+                      Browse Retail Stores
+                    </span>
+                    <span className="text-muted-foreground">
+                      Discover retail stores and explore their tokens
+                    </span>
                   </div>
-
-                  {/* Featured Shops */}
-                  <div className="mt-6">
-                    <h3 className="text-lg font-medium mb-3">Featured Shops</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-4 border border-border rounded-lg hover:bg-muted/50 cursor-pointer">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="font-medium">Coffee Corner</span>
-                          <span className="text-sm text-muted-foreground">
-                            50 COFFEE
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Premium coffee shop downtown
+                  {/* All Stores */}
+                  <div className="mt-8">
+                    {isLoadingStores ? (
+                      <div className="text-center py-8">
+                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                        <p className="mt-2 text-muted-foreground">
+                          Loading stores...
                         </p>
                       </div>
-                      <div className="p-4 border border-border rounded-lg hover:bg-muted/50 cursor-pointer">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="font-medium">Tech Store</span>
-                          <span className="text-sm text-muted-foreground">
-                            100 TECH
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Latest gadgets and electronics
-                        </p>
+                    ) : allStores.length > 0 ? (
+                      <div className="grid gap-4">
+                        {allStores.map((store, index) => (
+                          <Card
+                            key={`${store.store}-${index}`}
+                            className="border-2 border-border/50 hover:border-purple-500/50 transition-colors"
+                          >
+                            <CardHeader>
+                              <CardTitle className="text-lg">
+                                {store.storeInfo?.name || "Unnamed Store"}
+                              </CardTitle>
+                              <CardDescription>
+                                {store.storeInfo?.description ||
+                                  "No description available"}
+                              </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-2">
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-muted-foreground">
+                                    Store Address:
+                                  </span>
+                                  <span className="font-mono text-xs">
+                                    {store.store.slice(0, 6)}...
+                                    {store.store.slice(-4)}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-muted-foreground">
+                                    Owner:
+                                  </span>
+                                  <span className="font-mono text-xs">
+                                    {store.owner.slice(0, 6)}...
+                                    {store.owner.slice(-4)}
+                                  </span>
+                                </div>
+                                {store.storeInfo?.tokenAddress && (
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">
+                                      Token:
+                                    </span>
+                                    <span className="font-mono text-xs">
+                                      {store.storeInfo.tokenAddress.slice(0, 6)}
+                                      ...
+                                      {store.storeInfo.tokenAddress.slice(-4)}
+                                    </span>
+                                  </div>
+                                )}
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-muted-foreground">
+                                    Status:
+                                  </span>
+                                  <span
+                                    className={`font-medium ${
+                                      store.storeInfo?.isActive
+                                        ? "text-green-600"
+                                        : "text-gray-500"
+                                    }`}
+                                  >
+                                    {store.storeInfo?.isActive
+                                      ? "Active"
+                                      : "Inactive"}
+                                  </span>
+                                </div>
+                              </div>
+                              <Button
+                                variant="outline"
+                                className="w-full mt-4"
+                                onClick={() => {
+                                  // Navigate to store details or implement store visit logic
+                                  console.log("Visiting store:", store.store);
+                                }}
+                              >
+                                Visit Store
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        ))}
                       </div>
-                      <div className="p-4 border border-border rounded-lg hover:bg-muted/50 cursor-pointer">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="font-medium">Fashion Hub</span>
-                          <span className="text-sm text-muted-foreground">
-                            75 FASHION
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Trendy clothing and accessories
-                        </p>
-                      </div>
-                      <div className="p-4 border border-border rounded-lg hover:bg-muted/50 cursor-pointer">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="font-medium">Book Nook</span>
-                          <span className="text-sm text-muted-foreground">
-                            30 BOOK
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Cozy bookstore with rare finds
-                        </p>
-                      </div>
-                      {/* Add more dummy shops for scrolling demo */}
-                      <div className="p-4 border border-border rounded-lg hover:bg-muted/50 cursor-pointer">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="font-medium">Fitness Zone</span>
-                          <span className="text-sm text-muted-foreground">
-                            80 FIT
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Premium gym equipment and supplements
-                        </p>
-                      </div>
-                      <div className="p-4 border border-border rounded-lg hover:bg-muted/50 cursor-pointer">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="font-medium">Art Gallery</span>
-                          <span className="text-sm text-muted-foreground">
-                            45 ART
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Local artists and unique pieces
-                        </p>
-                      </div>
-                    </div>
+                    ) : (
+                      <Card className="border-dashed border-2">
+                        <CardContent className="text-center py-8">
+                          <p className="text-muted-foreground">
+                            No stores found
+                          </p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Be the first to create a store!
+                          </p>
+                          {isConnected && (
+                            <Button
+                              onClick={handleRetailLogin}
+                              className="mt-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                            >
+                              Create Your Store
+                            </Button>
+                          )}
+                        </CardContent>
+                      </Card>
+                    )}
                   </div>
                 </div>
               </TabsContent>

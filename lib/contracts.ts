@@ -41,7 +41,7 @@ export const CONTRACT_ADDRESSES: Record<
   [sepolia.id]: {
     TOKEN_FACTORY: "0x85d6F0f1b61992d18AF39ebd520b5209418900a3" as Address, // Legacy - can be updated later
     STORE_CONTRACT: "0x85d6F0f1b61992d18AF39ebd520b5209418900a3" as Address, // Your actual store contract
-    RETAIL_FACTORY: "0x935c367772E914C160A728b389baa6A031cC2149" as Address, // Your deployed retail factory
+    RETAIL_FACTORY: "0xA8E26B8a731d0aBeF824311aF59F8c0EFd3daC23" as Address, // Your deployed retail factory
   },
 };
 

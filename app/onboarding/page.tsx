@@ -83,7 +83,7 @@ export default function OnboardingPage() {
         <Card className="backdrop-blur-md bg-black/40 border-purple-500/30 shadow-2xl shadow-purple-500/20">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold text-white">
-              Welcome to Token Shop!
+              Welcome to Block Bazaar!
             </CardTitle>
             <CardDescription className="text-gray-300">
               Set up your retail shop to start generating tokens for your
