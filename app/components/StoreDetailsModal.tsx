@@ -19,7 +19,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Copy, ExternalLink, Store, Coins, Users, Package } from "lucide-react";
+import { Copy, ExternalLink, Store, Coins, Users, Package, ArrowLeftRight } from "lucide-react";
+import TokenSwapModal from "./TokenSwapModal";
 
 interface StoreInfo {
   name: string;
@@ -54,6 +55,9 @@ export default function StoreDetailsModal({
   const [loading, setLoading] = useState(false);
   const [detailedInfo, setDetailedInfo] = useState<StoreInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // Swap modal state
+  const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
 
   // Copy to clipboard function
   const copyToClipboard = (text: string) => {
@@ -314,9 +318,23 @@ export default function StoreDetailsModal({
             <TabsContent value="token" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Token Details</CardTitle>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Token Details</span>
+                    {detailedInfo?.tokenAddress &&
+                      detailedInfo.tokenAddress !==
+                        "0x0000000000000000000000000000000000000000" && (
+                        <Button
+                          onClick={() => setIsSwapModalOpen(true)}
+                          size="sm"
+                          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                        >
+                          <ArrowLeftRight className="h-4 w-4 mr-2" />
+                          Swap Tokens
+                        </Button>
+                      )}
+                  </CardTitle>
                   <CardDescription>
-                    Detailed information about the store token
+                    Swap between store tokens and PYUSD using Uniswap V2
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -327,11 +345,95 @@ export default function StoreDetailsModal({
                         Loading token details...
                       </p>
                     </div>
+                  ) : detailedInfo?.tokenAddress &&
+                    detailedInfo.tokenAddress !==
+                      "0x0000000000000000000000000000000000000000" ? (
+                    <div className="space-y-4">
+                      {/* Token Information Display */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-3">
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">
+                              Token Address:
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs">
+                                {formatAddress(detailedInfo.tokenAddress)}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  copyToClipboard(detailedInfo.tokenAddress)
+                                }
+                                className="h-6 w-6 p-0"
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                          {detailedInfo.tokenBalance && (
+                            <div className="flex justify-between">
+                              <span className="text-sm text-muted-foreground">
+                                Store Balance:
+                              </span>
+                              <span className="text-sm font-medium">
+                                {formatBigInt(detailedInfo.tokenBalance)}
+                              </span>
+                            </div>
+                          )}
+                          {detailedInfo.tokenTotalSupply && (
+                            <div className="flex justify-between">
+                              <span className="text-sm text-muted-foreground">
+                                Total Supply:
+                              </span>
+                              <span className="text-sm font-medium">
+                                {formatBigInt(detailedInfo.tokenTotalSupply)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-4 rounded-lg border">
+                            <h4 className="font-medium text-sm mb-2">
+                              🔄 Token Swapping
+                            </h4>
+                            <p className="text-xs text-muted-foreground mb-3">
+                              Trade store tokens with PYUSD on Uniswap V2
+                            </p>
+                            <Button
+                              onClick={() => setIsSwapModalOpen(true)}
+                              size="sm"
+                              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                            >
+                              <ArrowLeftRight className="h-4 w-4 mr-2" />
+                              Open Swap Interface
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {!detailedInfo.tokenBalance &&
+                        !detailedInfo.tokenTotalSupply && (
+                          <div className="text-xs text-yellow-600 bg-yellow-50 p-3 rounded-lg">
+                            💡 Token balance and supply info may be limited
+                            due to RPC constraints. Swapping functionality is still available.
+                          </div>
+                        )}
+                    </div>
                   ) : (
-                    <p className="text-muted-foreground">
-                      Token management and trading features will be available
-                      here.
-                    </p>
+                    <div className="text-center py-8">
+                      <div className="w-12 h-12 mx-auto bg-muted/50 rounded-full flex items-center justify-center mb-4">
+                        <Coins className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <p className="text-muted-foreground">
+                        Token information not available
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        This store may not have a token configured yet
+                      </p>
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -400,6 +502,17 @@ export default function StoreDetailsModal({
           </div>
         </div>
       </DialogContent>
+
+      {/* Token Swap Modal */}
+      {detailedInfo?.tokenAddress &&
+        detailedInfo.tokenAddress !==
+          "0x0000000000000000000000000000000000000000" && (
+          <TokenSwapModal
+            isOpen={isSwapModalOpen}
+            onClose={() => setIsSwapModalOpen(false)}
+            storeTokenAddress={detailedInfo.tokenAddress}
+          />
+        )}
     </Dialog>
   );
 }
