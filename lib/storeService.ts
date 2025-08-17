@@ -16,6 +16,54 @@ import {
 } from "./contracts";
 import { STORE_CONTRACT_ABI } from "./storeABI";
 
+// ERC-20 ABI for approve and transfer functions
+const ERC20_ABI = [
+  {
+    name: "approve",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+  {
+    name: "transfer",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+  {
+    name: "balanceOf",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "allowance",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "spender", type: "address" },
+    ],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "totalSupply",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+] as const;
+
 // TypeScript interfaces for the contract data structures
 export interface Product {
   id: bigint;
@@ -39,6 +87,7 @@ export interface StoreInfo {
   description: string;
   tokenAddress: Address;
   tokenBalance: bigint;
+  tokenTotalSupply?: bigint; // Optional: total supply of store token
   isActive: boolean;
   createdAt: bigint;
 }
@@ -106,6 +155,270 @@ export const getStoreContractAddress = async (): Promise<Address> => {
   // Fallback to dynamic lookup for other networks
   return getContractAddress(chainId, "STORE_CONTRACT");
 };
+
+/**
+ * Approve PYUSD spending for a contract
+ */
+export async function approvePyusdSpending(
+  pyusdTokenAddress: Address,
+  spenderAddress: Address,
+  amount: bigint,
+  walletAddress: Address
+): Promise<string> {
+  try {
+    const walletClient = getWalletClient();
+
+    console.log("💰 Approving PYUSD spending:", {
+      token: pyusdTokenAddress,
+      spender: spenderAddress,
+      amount: amount.toString(),
+      from: walletAddress,
+    });
+
+    const hash = await walletClient.writeContract({
+      address: pyusdTokenAddress,
+      abi: ERC20_ABI,
+      functionName: "approve",
+      args: [spenderAddress, amount],
+      account: walletAddress,
+    });
+
+    console.log("✅ PYUSD approval transaction submitted:", hash);
+    return hash;
+  } catch (error) {
+    console.error("❌ Error approving PYUSD spending:", error);
+    throw error;
+  }
+}
+
+/**
+ * Transfer PYUSD to a contract
+ */
+export async function transferPyusdToContract(
+  pyusdTokenAddress: Address,
+  contractAddress: Address,
+  amount: bigint,
+  walletAddress: Address
+): Promise<string> {
+  try {
+    const walletClient = getWalletClient();
+
+    console.log("💸 Transferring PYUSD to contract:", {
+      token: pyusdTokenAddress,
+      to: contractAddress,
+      amount: amount.toString(),
+      from: walletAddress,
+    });
+
+    const hash = await walletClient.writeContract({
+      address: pyusdTokenAddress,
+      abi: ERC20_ABI,
+      functionName: "transfer",
+      args: [contractAddress, amount],
+      account: walletAddress,
+    });
+
+    console.log("✅ PYUSD transfer transaction submitted:", hash);
+    return hash;
+  } catch (error) {
+    console.error("❌ Error transferring PYUSD:", error);
+    throw error;
+  }
+}
+
+/**
+ * Check PYUSD balance of an address
+ */
+export async function getPyusdBalance(
+  pyusdTokenAddress: Address,
+  accountAddress: Address
+): Promise<bigint> {
+  try {
+    const publicClient = getPublicClient();
+
+    const balance = await publicClient.readContract({
+      address: pyusdTokenAddress,
+      abi: ERC20_ABI,
+      functionName: "balanceOf",
+      args: [accountAddress],
+    });
+
+    return balance as bigint;
+  } catch (error) {
+    console.error("❌ Error getting PYUSD balance:", error);
+    throw error;
+  }
+}
+
+/**
+ * Get total supply of store's token
+ */
+export async function getStoreTokenTotalSupply(
+  storeAddress: Address
+): Promise<bigint> {
+  try {
+    const publicClient = getPublicClient();
+
+    // First get the token address from the store
+    const tokenAddress = (await publicClient.readContract({
+      address: storeAddress,
+      abi: STORE_CONTRACT_ABI,
+      functionName: "tokenAddress",
+    })) as Address;
+
+    console.log("🪙 Getting total supply for token:", tokenAddress);
+
+    // Then get the total supply from the token contract
+    const totalSupply = await publicClient.readContract({
+      address: tokenAddress,
+      abi: ERC20_ABI,
+      functionName: "totalSupply",
+    });
+
+    return totalSupply as bigint;
+  } catch (error) {
+    console.error("❌ Error getting store token total supply:", error);
+    throw error;
+  }
+}
+
+/**
+ * Check PYUSD allowance
+ */
+export async function getPyusdAllowance(
+  pyusdTokenAddress: Address,
+  ownerAddress: Address,
+  spenderAddress: Address
+): Promise<bigint> {
+  try {
+    const publicClient = getPublicClient();
+
+    const allowance = await publicClient.readContract({
+      address: pyusdTokenAddress,
+      abi: ERC20_ABI,
+      functionName: "allowance",
+      args: [ownerAddress, spenderAddress],
+    });
+
+    return allowance as bigint;
+  } catch (error) {
+    console.error("❌ Error getting PYUSD allowance:", error);
+    throw error;
+  }
+}
+
+/**
+ * Get product by ID from a specific store
+ */
+export async function getProductFromStore(
+  storeAddress: Address,
+  productId: bigint
+): Promise<Product> {
+  try {
+    const publicClient = getPublicClient();
+
+    const result = await publicClient.readContract({
+      address: storeAddress,
+      abi: STORE_CONTRACT_ABI,
+      functionName: "getProduct",
+      args: [productId],
+    });
+
+    return result as Product;
+  } catch (error) {
+    console.error(
+      `Error getting product ${productId} from store:`,
+      storeAddress,
+      error
+    );
+    throw error;
+  }
+}
+
+/**
+ * Get next product ID from a specific store
+ */
+export async function getNextProductIdFromStore(
+  storeAddress: Address
+): Promise<bigint> {
+  try {
+    const publicClient = getPublicClient();
+
+    const result = await publicClient.readContract({
+      address: storeAddress,
+      abi: STORE_CONTRACT_ABI,
+      functionName: "nextProductId",
+    });
+
+    return result as bigint;
+  } catch (error) {
+    console.error(
+      "Error getting next product ID from store:",
+      storeAddress,
+      error
+    );
+    throw error;
+  }
+}
+
+/**
+ * Get all products from a specific store
+ */
+export async function getAllProductsFromStore(
+  storeAddress: Address
+): Promise<Product[]> {
+  try {
+    console.log("🛒 Loading all products from store:", storeAddress);
+    const startTime = performance.now();
+
+    // Get the next product ID to know how many products exist
+    const nextId = await getNextProductIdFromStore(storeAddress);
+    const totalProducts = Number(nextId) - 1;
+
+    console.log(`📊 Store has ${totalProducts} products to load`);
+
+    if (totalProducts <= 0) {
+      console.log("📭 No products found in store");
+      return [];
+    }
+
+    // Create array of product IDs to fetch (1 to totalProducts)
+    const productIds = Array.from({ length: totalProducts }, (_, i) =>
+      BigInt(i + 1)
+    );
+
+    // Fetch all products in parallel for better performance
+    const productPromises = productIds.map(async (id) => {
+      try {
+        const product = await getProductFromStore(storeAddress, id);
+        return { success: true, product, id };
+      } catch (error) {
+        console.error(`Failed to load product ${id}:`, error);
+        return { success: false, error, id };
+      }
+    });
+
+    const results = await Promise.all(productPromises);
+    const endTime = performance.now();
+
+    console.log(
+      `⚡ Loaded ${totalProducts} products in ${(endTime - startTime).toFixed(
+        2
+      )}ms`
+    );
+
+    // Filter successful results and return products
+    const products = results
+      .filter((result) => result.success && "product" in result)
+      .map((result) => (result as { success: true; product: Product }).product);
+
+    console.log(`✅ Successfully loaded ${products.length} products`);
+    return products;
+  } catch (error) {
+    console.error("❌ Error loading products from store:", storeAddress, error);
+    throw error;
+  }
+}
 
 /**
  * Wait for a transaction to be confirmed and get the receipt
@@ -213,6 +526,100 @@ export async function initializeStoreAtAddress(
       pyusdLiquidity: pyusdLiquidity.toString(),
     });
 
+    // Additional validation logging
+    console.log("🔍 Contract address validation:");
+    console.log("- Store Contract:", storeContractAddress);
+    console.log("- Uniswap V2 Router:", uniswapV2Router);
+    console.log("- PYUSD Token:", pyusdToken);
+    console.log("- Wallet Address:", walletAddress);
+
+    // Check if any address is zero
+    const zeroAddress = "0x0000000000000000000000000000000000000000";
+    if (storeContractAddress === zeroAddress)
+      console.error("❌ Store contract address is zero!");
+    if (uniswapV2Router === zeroAddress)
+      console.error("❌ Uniswap router address is zero!");
+    if (pyusdToken === zeroAddress)
+      console.error("❌ PYUSD token address is zero!");
+    if (walletAddress === zeroAddress)
+      console.error("❌ Wallet address is zero!");
+
+    // Step 1: Check user's PYUSD balance
+    console.log("💰 Checking PYUSD balance...");
+    const userPyusdBalance = await getPyusdBalance(pyusdToken, walletAddress);
+    console.log(`User PYUSD balance: ${userPyusdBalance.toString()}`);
+
+    if (userPyusdBalance < pyusdLiquidity) {
+      throw new Error(
+        `Insufficient PYUSD balance. Required: ${pyusdLiquidity.toString()}, Available: ${userPyusdBalance.toString()}`
+      );
+    }
+
+    // Step 2: Check current allowance
+    console.log("🔍 Checking current PYUSD allowance...");
+    const currentAllowance = await getPyusdAllowance(
+      pyusdToken,
+      walletAddress,
+      storeContractAddress
+    );
+    console.log(`Current allowance: ${currentAllowance.toString()}`);
+
+    // Step 3: Approve PYUSD spending if needed
+    if (currentAllowance < pyusdLiquidity) {
+      console.log("📝 Approving PYUSD spending...");
+      const approvalHash = await approvePyusdSpending(
+        pyusdToken,
+        storeContractAddress,
+        pyusdLiquidity,
+        walletAddress
+      );
+
+      // Wait for approval to be confirmed
+      console.log("⏳ Waiting for approval confirmation...");
+      await waitForTransaction(approvalHash as `0x${string}`);
+      console.log("✅ PYUSD approval confirmed");
+    } else {
+      console.log("✅ Sufficient allowance already exists");
+    }
+
+    // Step 4: Try to simulate the store initialization transaction (PYUSD transfer happens inside initializeStore)
+    try {
+      const publicClient = getPublicClient();
+      console.log(
+        "🔍 Simulating store initialization transaction (includes PYUSD transfer)..."
+      );
+
+      await publicClient.simulateContract({
+        address: storeContractAddress,
+        abi: STORE_CONTRACT_ABI,
+        functionName: "initializeStore",
+        args: [
+          storeName,
+          storeDescription,
+          tokenName,
+          tokenSymbol,
+          initialTokenSupply,
+          uniswapV2Router,
+          pyusdToken,
+          pyusdLiquidity,
+        ],
+        account: walletAddress,
+      });
+
+      console.log("✅ Transaction simulation successful");
+    } catch (simulationError) {
+      console.error("❌ Transaction simulation failed:", simulationError);
+      throw new Error(
+        `Transaction would fail: ${
+          simulationError instanceof Error
+            ? simulationError.message
+            : String(simulationError)
+        }`
+      );
+    }
+
+    // Step 5: Initialize the store (contract will pull PYUSD from wallet)
+    console.log("🏪 Initializing store...");
     const hash = await walletClient.writeContract({
       address: storeContractAddress,
       abi: STORE_CONTRACT_ABI,
@@ -233,7 +640,26 @@ export async function initializeStoreAtAddress(
     console.log("🔧 Store initialization transaction submitted:", hash);
     return hash;
   } catch (error) {
-    console.error("Error initializing store at address:", error);
+    console.error(
+      "❌ Error initializing store at address:",
+      storeContractAddress
+    );
+    console.error("Full error details:", error);
+
+    // Try to extract more specific error information
+    if (error instanceof Error) {
+      console.error("Error message:", error.message);
+      if ("cause" in error) {
+        console.error("Error cause:", error.cause);
+      }
+      if ("data" in error) {
+        console.error(
+          "Error data:",
+          (error as unknown as { data: unknown }).data
+        );
+      }
+    }
+
     throw error;
   }
 }
@@ -268,13 +694,25 @@ export async function getStoreInfoByAddress(
   try {
     const publicClient = getPublicClient();
 
-    const result = await publicClient.readContract({
+    // Get basic store info
+    const storeInfo = (await publicClient.readContract({
       address: storeAddress,
       abi: STORE_CONTRACT_ABI,
       functionName: "getStoreInfo",
-    });
+    })) as StoreInfo;
 
-    return result as StoreInfo;
+    // Get token total supply
+    try {
+      const tokenTotalSupply = await getStoreTokenTotalSupply(storeAddress);
+      return {
+        ...storeInfo,
+        tokenTotalSupply,
+      };
+    } catch (totalSupplyError) {
+      console.warn("Could not get token total supply:", totalSupplyError);
+      // Return store info without total supply if it fails
+      return storeInfo;
+    }
   } catch (error) {
     console.error("Error getting store info for address:", storeAddress, error);
     throw error;
@@ -368,7 +806,47 @@ export async function getTotalRevenue(): Promise<bigint> {
 // ===== PRODUCT MANAGEMENT FUNCTIONS =====
 
 /**
- * Add a new product to the store
+ * Add a new product to a specific store
+ */
+export async function addProductToStore(
+  storeAddress: Address,
+  name: string,
+  description: string,
+  price: bigint,
+  stock: bigint,
+  walletAddress: Address
+): Promise<string> {
+  try {
+    const walletClient = getWalletClient();
+
+    console.log("📦 Adding product to store:", {
+      storeAddress,
+      contractAddress: storeAddress,
+      name,
+      description,
+      price: price.toString(),
+      stock: stock.toString(),
+      walletAddress,
+    });
+
+    const hash = await walletClient.writeContract({
+      address: storeAddress,
+      abi: STORE_CONTRACT_ABI,
+      functionName: "addProduct",
+      args: [name, description, price, stock],
+      account: walletAddress,
+    });
+
+    console.log("🔧 Product addition transaction submitted:", hash);
+    return hash;
+  } catch (error) {
+    console.error("❌ Error adding product to store:", storeAddress, error);
+    throw error;
+  }
+}
+
+/**
+ * Add a new product to the store (legacy function for single store)
  */
 export async function addProduct(
   name: string,

@@ -34,18 +34,23 @@ import {
   initializeStoreAtAddress,
   getStoreInfoByAddress,
   StoreInfo,
+  getAllProductsFromStore,
+  Product,
 } from "../../lib/storeService";
 import { toast } from "sonner";
 import StoreInitializationModal from "../components/StoreInitializationModal";
+import ProductCreationModal from "../components/ProductCreationModal";
 
 export default function DashboardPage() {
   const { isConnected, isConnecting, address } = useAccount();
   const router = useRouter();
   const [isTokenModalOpen, setIsTokenModalOpen] = useState(false);
-  const [userTokens, setUserTokens] = useState<TokenInfo[]>([]);
-  const [isLoadingTokens, setIsLoadingTokens] = useState(false);
   const [tokenCreationSuccess, setTokenCreationSuccess] =
     useState<Address | null>(null);
+
+  // Products state
+  const [storeProducts, setStoreProducts] = useState<Product[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
 
   // Store management state
   const [userStores, setUserStores] = useState<Address[]>([]);
@@ -56,6 +61,9 @@ export default function DashboardPage() {
 
   // Store creation modal state
   const [showInitModal, setShowInitModal] = useState(false);
+
+  // Product creation modal state
+  const [showProductModal, setShowProductModal] = useState(false);
 
   const handleSignup = () => {
     router.push("/onboarding");
@@ -68,8 +76,6 @@ export default function DashboardPage() {
     console.log("Token created successfully:", tokenConfig, tokenAddress);
     if (tokenAddress) {
       setTokenCreationSuccess(tokenAddress);
-      // Refresh tokens list
-      loadUserTokens();
     }
   };
 
@@ -127,24 +133,24 @@ export default function DashboardPage() {
     setSelectedStore(storeAddress);
   };
 
-  const loadUserTokens = async () => {
-    if (!address) return;
+  const loadStoreProducts = async () => {
+    if (!selectedStore) return;
 
-    setIsLoadingTokens(true);
+    setIsLoadingProducts(true);
     try {
-      const tokens = await getAllTokensInfo(address);
-      setUserTokens(tokens);
+      const products = await getAllProductsFromStore(selectedStore);
+      setStoreProducts(products);
     } catch (error) {
-      console.error("Failed to load user tokens:", error);
+      console.error("Failed to load store products:", error);
+      toast.error("Failed to load products");
     } finally {
-      setIsLoadingTokens(false);
+      setIsLoadingProducts(false);
     }
   };
 
-  // Load user tokens and stores when wallet connects
+  // Load user stores when wallet connects
   useEffect(() => {
     if (isConnected && address) {
-      loadUserTokens();
       loadUserStores();
     }
   }, [isConnected, address]);
@@ -153,8 +159,10 @@ export default function DashboardPage() {
   useEffect(() => {
     if (selectedStore) {
       loadStoreInfo(selectedStore);
+      loadStoreProducts();
     } else {
       setStoreInfo(null);
+      setStoreProducts([]);
     }
   }, [selectedStore]);
 
@@ -399,13 +407,27 @@ export default function DashboardPage() {
                     </div>
                     <div className="p-3 bg-muted/50 rounded-lg">
                       <div className="text-sm text-muted-foreground">
-                        Token Balance
+                        Your Token Balance
                       </div>
                       <div className="text-lg font-semibold">
                         {(Number(storeInfo.tokenBalance) / 10 ** 18).toFixed(2)}{" "}
                         tokens
                       </div>
                     </div>
+                    {storeInfo.tokenTotalSupply && (
+                      <div className="p-3 bg-muted/50 rounded-lg">
+                        <div className="text-sm text-muted-foreground">
+                          Total Token Supply
+                        </div>
+                        <div className="text-lg font-semibold">
+                          {(
+                            Number(storeInfo.tokenTotalSupply) /
+                            10 ** 18
+                          ).toFixed(2)}{" "}
+                          tokens
+                        </div>
+                      </div>
+                    )}
                     <div className="p-3 bg-muted/50 rounded-lg">
                       <div className="text-sm text-muted-foreground">
                         Created
@@ -418,6 +440,13 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2">
+                    <Button
+                      onClick={() => setShowProductModal(true)}
+                      size="sm"
+                      className="bg-primary hover:bg-primary/90"
+                    >
+                      🛒 Add Product
+                    </Button>
                     <Button
                       variant="outline"
                       onClick={() =>
@@ -449,9 +478,6 @@ export default function DashboardPage() {
                   <Button onClick={() => setIsTokenModalOpen(true)}>
                     Create New Token
                   </Button>
-                  <Button variant="outline" onClick={loadUserTokens}>
-                    Refresh Tokens
-                  </Button>
                 </div>
               )}
             </CardContent>
@@ -460,99 +486,124 @@ export default function DashboardPage() {
           {/* Quick Stats */}
           <Card>
             <CardHeader>
-              <CardTitle>Total Tokens</CardTitle>
+              <CardTitle>Total Products</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">
-                {isLoadingTokens ? "..." : userTokens.length}
+                {isLoadingProducts ? "..." : storeProducts.length}
               </div>
               <p className="text-muted-foreground text-sm">
-                {userTokens.length === 0
-                  ? "No tokens created yet"
-                  : "Tokens deployed"}
+                {storeProducts.length === 0
+                  ? "No products added yet"
+                  : "Products in store"}
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Shop Status</CardTitle>
+              <CardTitle>Store Status</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-lg font-bold text-green-500">
-                {userTokens.length > 0 ? "Active" : "Setup Needed"}
+                {selectedStore ? "Active" : "No Store Selected"}
               </div>
               <p className="text-muted-foreground text-sm">
-                {userTokens.length > 0
-                  ? "Ready to serve customers"
-                  : "Create your first token"}
+                {selectedStore
+                  ? "Store is ready for business"
+                  : "Select or create a store"}
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Customer Rewards</CardTitle>
+              <CardTitle>Active Products</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-lg font-bold">
-                {userTokens
-                  .reduce(
-                    (total, token) => total + parseFloat(token.totalSupply),
-                    0
-                  )
-                  .toLocaleString()}
+                {storeProducts.filter((product) => product.isActive).length}
               </div>
               <p className="text-muted-foreground text-sm">
-                Total reward tokens available
+                Products available for sale
               </p>
             </CardContent>
           </Card>
 
-          {/* Your Tokens */}
+          {/* Store Products */}
           <Card className="md:col-span-2 lg:col-span-3">
             <CardHeader>
-              <CardTitle>Your Tokens</CardTitle>
+              <CardTitle>Store Products</CardTitle>
               <CardDescription>
-                Tokens you&apos;ve created on the blockchain
+                {selectedStore
+                  ? `Products available in your ${
+                      storeInfo?.name || "selected"
+                    } store`
+                  : "Select a store to view its products"}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoadingTokens ? (
+              {!selectedStore ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>Please select a store to view its products.</p>
+                  <p className="text-sm">
+                    Use the dropdown above to choose a store or create a new
+                    one.
+                  </p>
+                </div>
+              ) : isLoadingProducts ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                  <span className="ml-2">Loading tokens...</span>
+                  <span className="ml-2">Loading products...</span>
                 </div>
-              ) : userTokens.length === 0 ? (
+              ) : storeProducts.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  <p>No tokens created yet.</p>
+                  <p>No products in this store yet.</p>
                   <p className="text-sm">
-                    Click &quot;Create New Token&quot; to get started!
+                    Click &quot;🛒 Add Product&quot; to add your first product!
                   </p>
                 </div>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {userTokens.map((token) => (
-                    <Card key={token.address} className="border-purple-500/20">
+                  {storeProducts.map((product) => (
+                    <Card
+                      key={product.id.toString()}
+                      className="border-green-500/20"
+                    >
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-lg">{token.name}</CardTitle>
-                        <CardDescription>{token.symbol}</CardDescription>
+                        <CardTitle className="text-lg">
+                          {product.name}
+                        </CardTitle>
+                        <CardDescription className="text-sm">
+                          {product.description}
+                        </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span>Total Supply:</span>
-                          <span>
-                            {parseFloat(token.totalSupply).toLocaleString()}
+                          <span>Price:</span>
+                          <span className="font-semibold">
+                            {(Number(product.price) / 10 ** 18).toFixed(3)}{" "}
+                            tokens
                           </span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span>Your Balance:</span>
-                          <span>
-                            {parseFloat(token.balance).toLocaleString()}
+                          <span>Stock:</span>
+                          <span>{product.stock.toString()} units</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Status:</span>
+                          <span
+                            className={
+                              product.isActive
+                                ? "text-green-600"
+                                : "text-red-600"
+                            }
+                          >
+                            {product.isActive ? "Active" : "Inactive"}
                           </span>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {token.address}
+                          Product ID: {product.id.toString()}
                         </div>
                       </CardContent>
                     </Card>
@@ -578,6 +629,22 @@ export default function DashboardPage() {
         onSuccess={handleStoreInitialized}
         walletAddress={address!}
       />
+
+      {/* Product Creation Modal */}
+      {selectedStore && (
+        <ProductCreationModal
+          isOpen={showProductModal}
+          onClose={() => setShowProductModal(false)}
+          onSuccess={() => {
+            // Refresh product list after adding a new product
+            loadStoreProducts();
+            toast.success("Product added to your store!");
+          }}
+          storeAddress={selectedStore}
+          walletAddress={address!}
+          storeInfo={storeInfo || undefined}
+        />
+      )}
     </div>
   );
 }

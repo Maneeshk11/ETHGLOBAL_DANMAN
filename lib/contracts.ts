@@ -92,7 +92,7 @@ export const STORE_CONTRACT_ADDRESS =
 // Uniswap V2 Router and PYUSD addresses by network
 export const UNISWAP_V2_ROUTER_ADDRESSES: Record<number, Address> = {
   [LOCAL_CHAIN.id]: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D" as Address, // Local (using mainnet address for testing)
-  [sepolia.id]: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D" as Address, // Sepolia Uniswap V2 Router
+  [sepolia.id]: "0xeE567Fe1712Faf6149d80dA1E6934E354124CfE3" as Address, // Sepolia Uniswap V2 Router
 };
 
 export const PYUSD_TOKEN_ADDRESSES: Record<number, Address> = {

@@ -23,6 +23,7 @@ import { toast } from "sonner";
 interface StoreInitData {
   storeName: string;
   tokenSymbol: string;
+  pyusdLiquidity: string; // PYUSD amount for liquidity (as string for input handling)
 }
 
 interface StoreInitializationModalProps {
@@ -42,13 +43,25 @@ export default function StoreInitializationModal({
   const [formData, setFormData] = useState<StoreInitData>({
     storeName: "",
     tokenSymbol: "",
+    pyusdLiquidity: "20", // Default to 20 PYUSD
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.storeName || !formData.tokenSymbol) {
+    if (
+      !formData.storeName ||
+      !formData.tokenSymbol ||
+      !formData.pyusdLiquidity
+    ) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+
+    // Validate PYUSD liquidity amount
+    const pyusdAmount = parseFloat(formData.pyusdLiquidity);
+    if (isNaN(pyusdAmount) || pyusdAmount <= 0) {
+      toast.error("PYUSD liquidity must be a positive number");
       return;
     }
 
@@ -71,9 +84,9 @@ export default function StoreInitializationModal({
 
       console.log("✅ Step 1 complete. Store address:", storeAddress);
 
-      // Step 2: Initialize store with collected data
-      const step2Toast = toast.loading("Initializing store...", {
-        description: "Step 2: Setting up your store details...",
+      // Step 2: Initialize store with collected data (includes PYUSD approval)
+      const step2Toast = toast.loading("Preparing store initialization...", {
+        description: "Step 2: Approving PYUSD and initializing store...",
         duration: Infinity,
       });
 
@@ -81,7 +94,7 @@ export default function StoreInitializationModal({
       const storeDescription = `Welcome to ${formData.storeName}! Your one-stop shop for quality products.`;
       const tokenName = `${formData.storeName} Token`;
       const initialSupply = BigInt(25) * BigInt(10 ** 18); // 25 tokens (all go to liquidity pool)
-      const pyusdLiquidity = BigInt(20) * BigInt(10 ** 6); // 20 PYUSD for liquidity
+      const pyusdLiquidity = BigInt(Math.floor(pyusdAmount * 1e6)); // Convert PYUSD to wei (6 decimals)
 
       const uniswapRouter = getUniswapV2RouterAddress();
       const pyusdToken = getPyusdTokenAddress();
@@ -130,6 +143,7 @@ export default function StoreInitializationModal({
       setFormData({
         storeName: "",
         tokenSymbol: "",
+        pyusdLiquidity: "20", // Reset to default
       });
 
       onSuccess(storeAddress);
@@ -204,6 +218,27 @@ export default function StoreInitializationModal({
               </div>
             </div>
 
+            {/* PYUSD Liquidity Input */}
+            <div>
+              <Label htmlFor="pyusdLiquidity">PYUSD Liquidity *</Label>
+              <Input
+                id="pyusdLiquidity"
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={formData.pyusdLiquidity}
+                onChange={(e) =>
+                  handleInputChange("pyusdLiquidity", e.target.value)
+                }
+                placeholder="20.00"
+                required
+                disabled={loading}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Amount of PYUSD to provide for trading liquidity
+              </p>
+            </div>
+
             {/* Smart Defaults Info */}
             <div className="p-3 bg-muted/50 rounded-lg">
               <h5 className="text-sm font-medium mb-2">
@@ -212,7 +247,10 @@ export default function StoreInitializationModal({
               <ul className="text-xs text-muted-foreground space-y-1">
                 <li>• Auto-generated store description</li>
                 <li>• 25 initial tokens (all go to Uniswap liquidity pool)</li>
-                <li>• PYUSD trading pair with 20 PYUSD liquidity</li>
+                <li>
+                  • PYUSD trading pair with {formData.pyusdLiquidity || "20"}{" "}
+                  PYUSD liquidity
+                </li>
                 <li>• Ready-to-trade token on Uniswap V2</li>
               </ul>
             </div>
