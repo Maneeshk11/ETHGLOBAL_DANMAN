@@ -13,9 +13,7 @@ import {
   getContractAddress,
   getCurrentChain,
   STORE_CONTRACT_ADDRESS,
-  LOCAL_CHAIN,
 } from "./contracts";
-import { sepolia } from "viem/chains";
 import { STORE_CONTRACT_ABI } from "./storeABI";
 
 // TypeScript interfaces for the contract data structures
@@ -140,14 +138,18 @@ export async function waitForTransaction(hash: `0x${string}`) {
 
 /**
  * Initialize the store with basic information and token
+ * Now includes Uniswap V2 integration for liquidity provision
+ * Based on actual contract: all initial supply goes to liquidity pool
  */
 export async function initializeStore(
   storeName: string,
   storeDescription: string,
   tokenName: string,
   tokenSymbol: string,
-  tokenDecimals: number,
   initialTokenSupply: bigint,
+  uniswapV2Router: Address,
+  pyusdToken: Address,
+  pyusdLiquidity: bigint,
   walletAddress: Address
 ): Promise<string> {
   try {
@@ -163,8 +165,10 @@ export async function initializeStore(
         storeDescription,
         tokenName,
         tokenSymbol,
-        tokenDecimals,
         initialTokenSupply,
+        uniswapV2Router,
+        pyusdToken,
+        pyusdLiquidity,
       ],
       account: walletAddress,
     });
@@ -172,6 +176,64 @@ export async function initializeStore(
     return hash;
   } catch (error) {
     console.error("Error initializing store:", error);
+    throw error;
+  }
+}
+
+/**
+ * Initialize a specific store contract with basic information and token
+ * This version allows you to specify the exact store contract address
+ * Now includes Uniswap V2 integration for liquidity provision
+ * Based on actual contract: all initial supply goes to liquidity pool
+ */
+export async function initializeStoreAtAddress(
+  storeContractAddress: Address,
+  storeName: string,
+  storeDescription: string,
+  tokenName: string,
+  tokenSymbol: string,
+  initialTokenSupply: bigint,
+  uniswapV2Router: Address,
+  pyusdToken: Address,
+  pyusdLiquidity: bigint,
+  walletAddress: Address
+): Promise<string> {
+  try {
+    const walletClient = getWalletClient();
+
+    console.log("🔧 Initializing store at address:", storeContractAddress);
+    console.log("Store details:", {
+      storeName,
+      storeDescription,
+      tokenName,
+      tokenSymbol,
+      initialTokenSupply: initialTokenSupply.toString(),
+      uniswapV2Router,
+      pyusdToken,
+      pyusdLiquidity: pyusdLiquidity.toString(),
+    });
+
+    const hash = await walletClient.writeContract({
+      address: storeContractAddress,
+      abi: STORE_CONTRACT_ABI,
+      functionName: "initializeStore",
+      args: [
+        storeName,
+        storeDescription,
+        tokenName,
+        tokenSymbol,
+        initialTokenSupply,
+        uniswapV2Router,
+        pyusdToken,
+        pyusdLiquidity,
+      ],
+      account: walletAddress,
+    });
+
+    console.log("🔧 Store initialization transaction submitted:", hash);
+    return hash;
+  } catch (error) {
+    console.error("Error initializing store at address:", error);
     throw error;
   }
 }
@@ -193,6 +255,28 @@ export async function getStoreInfo(): Promise<StoreInfo> {
     return result as StoreInfo;
   } catch (error) {
     console.error("Error getting store info:", error);
+    throw error;
+  }
+}
+
+/**
+ * Get store information for a specific store address
+ */
+export async function getStoreInfoByAddress(
+  storeAddress: Address
+): Promise<StoreInfo> {
+  try {
+    const publicClient = getPublicClient();
+
+    const result = await publicClient.readContract({
+      address: storeAddress,
+      abi: STORE_CONTRACT_ABI,
+      functionName: "getStoreInfo",
+    });
+
+    return result as StoreInfo;
+  } catch (error) {
+    console.error("Error getting store info for address:", storeAddress, error);
     throw error;
   }
 }

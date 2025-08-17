@@ -10,6 +10,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { WalletHeader } from "../components/WalletHeader";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
@@ -19,7 +26,17 @@ import {
 } from "../components/TokenConfigurationModal";
 import { getAllTokensInfo, TokenInfo } from "../../lib/contractService";
 import { Address } from "viem";
-import StoreDemo from "../components/StoreDemo";
+import {
+  getOwnerStores,
+  createStoreViaFactory,
+} from "../../lib/retailFactoryService";
+import {
+  initializeStoreAtAddress,
+  getStoreInfoByAddress,
+  StoreInfo,
+} from "../../lib/storeService";
+import { toast } from "sonner";
+import StoreInitializationModal from "../components/StoreInitializationModal";
 
 export default function DashboardPage() {
   const { isConnected, isConnecting, address } = useAccount();
@@ -29,6 +46,16 @@ export default function DashboardPage() {
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
   const [tokenCreationSuccess, setTokenCreationSuccess] =
     useState<Address | null>(null);
+
+  // Store management state
+  const [userStores, setUserStores] = useState<Address[]>([]);
+  const [selectedStore, setSelectedStore] = useState<Address | null>(null);
+  const [isLoadingStores, setIsLoadingStores] = useState(false);
+  const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null);
+  const [isLoadingStoreInfo, setIsLoadingStoreInfo] = useState(false);
+
+  // Store creation modal state
+  const [showInitModal, setShowInitModal] = useState(false);
 
   const handleSignup = () => {
     router.push("/onboarding");
@@ -46,6 +73,60 @@ export default function DashboardPage() {
     }
   };
 
+  const loadUserStores = async () => {
+    if (!address) return;
+
+    try {
+      setIsLoadingStores(true);
+      const stores = await getOwnerStores(address);
+      setUserStores(stores);
+
+      // Auto-select first store if none selected
+      if (stores.length > 0 && !selectedStore) {
+        setSelectedStore(stores[0]);
+      }
+
+      console.log(`📋 User has ${stores.length} stores:`, stores);
+    } catch (error) {
+      console.error("Error loading user stores:", error);
+      toast.error("Failed to load your stores");
+    } finally {
+      setIsLoadingStores(false);
+    }
+  };
+
+  const handleCreateNewStore = () => {
+    if (!address) {
+      toast.error("Please connect your wallet");
+      return;
+    }
+
+    // Open modal to collect store data first
+    setShowInitModal(true);
+  };
+
+  const loadStoreInfo = async (storeAddress: Address) => {
+    try {
+      setIsLoadingStoreInfo(true);
+      console.log("📊 Loading store info for:", storeAddress);
+      const info = await getStoreInfoByAddress(storeAddress);
+      setStoreInfo(info);
+      console.log("✅ Store info loaded:", info);
+    } catch (error) {
+      console.error("❌ Error loading store info:", error);
+      toast.error("Failed to load store information");
+      setStoreInfo(null);
+    } finally {
+      setIsLoadingStoreInfo(false);
+    }
+  };
+
+  const handleStoreInitialized = async (storeAddress: Address) => {
+    // Refresh stores and select the new one
+    await loadUserStores();
+    setSelectedStore(storeAddress);
+  };
+
   const loadUserTokens = async () => {
     if (!address) return;
 
@@ -60,12 +141,22 @@ export default function DashboardPage() {
     }
   };
 
-  // Load user tokens when wallet connects
+  // Load user tokens and stores when wallet connects
   useEffect(() => {
     if (isConnected && address) {
       loadUserTokens();
+      loadUserStores();
     }
   }, [isConnected, address]);
+
+  // Load store info when selectedStore changes
+  useEffect(() => {
+    if (selectedStore) {
+      loadStoreInfo(selectedStore);
+    } else {
+      setStoreInfo(null);
+    }
+  }, [selectedStore]);
 
   // Clear success message after 5 seconds
   useEffect(() => {
@@ -167,6 +258,86 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
+        {/* Store Selector */}
+        <div className="mb-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">Current Store</CardTitle>
+                  <CardDescription>
+                    Select a store to manage or create a new one
+                  </CardDescription>
+                </div>
+                <Button onClick={handleCreateNewStore} size="sm">
+                  + New Store
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <Select
+                    value={selectedStore || ""}
+                    onValueChange={(value) => {
+                      const storeAddress = value as Address;
+                      setSelectedStore(storeAddress);
+                    }}
+                    disabled={isLoadingStores || userStores.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={
+                          isLoadingStores
+                            ? "Loading stores..."
+                            : userStores.length === 0
+                            ? "No stores found - create your first store"
+                            : "Select a store"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {userStores.map((storeAddress, index) => (
+                        <SelectItem key={storeAddress} value={storeAddress}>
+                          <div className="flex items-center gap-2">
+                            <span>Store #{index + 1}</span>
+                            <span className="text-xs text-muted-foreground font-mono">
+                              {storeAddress.slice(0, 6)}...
+                              {storeAddress.slice(-4)}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {selectedStore && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      window.open(
+                        `https://sepolia.etherscan.io/address/${selectedStore}`,
+                        "_blank"
+                      )
+                    }
+                  >
+                    View on Explorer
+                  </Button>
+                )}
+              </div>
+              {selectedStore && (
+                <div className="mt-3 p-3 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    Selected Store:
+                  </p>
+                  <p className="font-mono text-sm">{selectedStore}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Success Message */}
         {tokenCreationSuccess && (
           <div className="mb-6 p-4 rounded-md bg-green-500/20 border border-green-500/30 text-green-400">
@@ -178,25 +349,111 @@ export default function DashboardPage() {
         )}
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {/* Welcome Card */}
+          {/* Store Details Card */}
           <Card className="md:col-span-2 lg:col-span-3">
             <CardHeader>
-              <CardTitle>Welcome to Your Token Shop! 🎉</CardTitle>
-              <CardDescription>
-                You&apos;ve successfully connected your wallet. Create and
-                manage tokens for your retail business.
-              </CardDescription>
+              {selectedStore && storeInfo && !isLoadingStoreInfo ? (
+                <>
+                  <CardTitle className="flex items-center gap-2">
+                    🏪 {storeInfo.name}
+                    {storeInfo.isActive ? (
+                      <span className="text-sm bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                        Active
+                      </span>
+                    ) : (
+                      <span className="text-sm bg-red-100 text-red-800 px-2 py-1 rounded-full">
+                        Inactive
+                      </span>
+                    )}
+                  </CardTitle>
+                  <CardDescription>{storeInfo.description}</CardDescription>
+                </>
+              ) : selectedStore && isLoadingStoreInfo ? (
+                <>
+                  <CardTitle>🔄 Loading Store Details...</CardTitle>
+                  <CardDescription>
+                    Fetching information for your selected store
+                  </CardDescription>
+                </>
+              ) : (
+                <>
+                  <CardTitle>Welcome to Your Token Shop! 🎉</CardTitle>
+                  <CardDescription>
+                    Select a store above to view its details, or create your
+                    first store to get started.
+                  </CardDescription>
+                </>
+              )}
             </CardHeader>
             <CardContent>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button onClick={() => setIsTokenModalOpen(true)}>
-                  Create New Token
-                </Button>
-                <Button variant="outline" onClick={loadUserTokens}>
-                  Refresh Tokens
-                </Button>
-                <Button variant="outline">Analytics</Button>
-              </div>
+              {selectedStore && storeInfo && !isLoadingStoreInfo ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <div className="text-sm text-muted-foreground">
+                        Store Token
+                      </div>
+                      <div className="font-mono text-xs mt-1 break-all">
+                        {storeInfo.tokenAddress}
+                      </div>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <div className="text-sm text-muted-foreground">
+                        Token Balance
+                      </div>
+                      <div className="text-lg font-semibold">
+                        {(Number(storeInfo.tokenBalance) / 10 ** 18).toFixed(2)}{" "}
+                        tokens
+                      </div>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <div className="text-sm text-muted-foreground">
+                        Created
+                      </div>
+                      <div className="text-sm">
+                        {new Date(
+                          Number(storeInfo.createdAt) * 1000
+                        ).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        window.open(
+                          `https://sepolia.etherscan.io/address/${selectedStore}`,
+                          "_blank"
+                        )
+                      }
+                      size="sm"
+                    >
+                      View on Explorer
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        window.open(
+                          `https://sepolia.etherscan.io/address/${storeInfo.tokenAddress}`,
+                          "_blank"
+                        )
+                      }
+                      size="sm"
+                    >
+                      View Token
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Button onClick={() => setIsTokenModalOpen(true)}>
+                    Create New Token
+                  </Button>
+                  <Button variant="outline" onClick={loadUserTokens}>
+                    Refresh Tokens
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -314,8 +571,13 @@ export default function DashboardPage() {
         onSubmit={handleTokenSubmit}
       />
 
-      {/* Store Demo */}
-      <StoreDemo />
+      {/* Store Creation Modal */}
+      <StoreInitializationModal
+        isOpen={showInitModal}
+        onClose={() => setShowInitModal(false)}
+        onSuccess={handleStoreInitialized}
+        walletAddress={address!}
+      />
     </div>
   );
 }

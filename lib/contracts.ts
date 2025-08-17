@@ -30,22 +30,25 @@ export const CONTRACT_ADDRESSES: Record<
   {
     TOKEN_FACTORY: Address;
     STORE_CONTRACT: Address;
+    RETAIL_FACTORY: Address;
   }
 > = {
   [LOCAL_CHAIN.id]: {
     TOKEN_FACTORY: "0x5FbDB2315678afecb367f032d93F642f64180aa3" as Address, // Default Anvil address
     STORE_CONTRACT: "0x5FbDB2315678afecb367f032d93F642f64180aa3" as Address, // Local store for testing
+    RETAIL_FACTORY: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512" as Address, // Local retail factory
   },
   [sepolia.id]: {
     TOKEN_FACTORY: "0x85d6F0f1b61992d18AF39ebd520b5209418900a3" as Address, // Legacy - can be updated later
     STORE_CONTRACT: "0x85d6F0f1b61992d18AF39ebd520b5209418900a3" as Address, // Your actual store contract
+    RETAIL_FACTORY: "0x935c367772E914C160A728b389baa6A031cC2149" as Address, // Your deployed retail factory
   },
 };
 
 // Get contract address for current network
 export const getContractAddress = (
   chainId: number,
-  contractName: "TOKEN_FACTORY" | "STORE_CONTRACT"
+  contractName: "TOKEN_FACTORY" | "STORE_CONTRACT" | "RETAIL_FACTORY"
 ) => {
   const addresses = CONTRACT_ADDRESSES[chainId];
   if (!addresses) {
@@ -60,9 +63,42 @@ export const getCurrentChain = () => {
   return sepolia;
 };
 
+// Get Uniswap V2 Router address for current chain
+export const getUniswapV2RouterAddress = (): Address => {
+  const chainId = getCurrentChain().id;
+  const address = UNISWAP_V2_ROUTER_ADDRESSES[chainId];
+  if (!address) {
+    throw new Error(
+      `Uniswap V2 Router address not configured for chain ${chainId}`
+    );
+  }
+  return address;
+};
+
+// Get PYUSD token address for current chain
+export const getPyusdTokenAddress = (): Address => {
+  const chainId = getCurrentChain().id;
+  const address = PYUSD_TOKEN_ADDRESSES[chainId];
+  if (!address) {
+    throw new Error(`PYUSD token address not configured for chain ${chainId}`);
+  }
+  return address;
+};
+
 // Store Contract Address (single instance for testing)
 export const STORE_CONTRACT_ADDRESS =
   "0x85d6F0f1b61992d18AF39ebd520b5209418900a3" as Address;
+
+// Uniswap V2 Router and PYUSD addresses by network
+export const UNISWAP_V2_ROUTER_ADDRESSES: Record<number, Address> = {
+  [LOCAL_CHAIN.id]: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D" as Address, // Local (using mainnet address for testing)
+  [sepolia.id]: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D" as Address, // Sepolia Uniswap V2 Router
+};
+
+export const PYUSD_TOKEN_ADDRESSES: Record<number, Address> = {
+  [LOCAL_CHAIN.id]: "0xCaC524BcA292aaade2DF8A05cC58F0a65B1B3bB9" as Address, // Local PYUSD
+  [sepolia.id]: "0xCaC524BcA292aaade2DF8A05cC58F0a65B1B3bB9" as Address, // Sepolia PYUSD
+};
 
 // Token Factory Contract ABI (legacy - keeping for now)
 export const TOKEN_FACTORY_ABI = [

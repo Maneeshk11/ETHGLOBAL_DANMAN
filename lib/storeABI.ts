@@ -1,5 +1,4 @@
 // Store Contract ABI
-// This is the ABI for the store contract deployed at 0x85d6F0f1b61992d18AF39ebd520b5209418900a3
 
 export const STORE_CONTRACT_ABI = [
   {
@@ -265,12 +264,40 @@ export const STORE_CONTRACT_ABI = [
         internalType: "string",
       },
       {
-        name: "_tokenDecimals",
-        type: "uint8",
-        internalType: "uint8",
+        name: "_initialTokenSupply",
+        type: "uint256",
+        internalType: "uint256",
       },
       {
-        name: "_initialTokenSupply",
+        name: "_uniswapV2Router",
+        type: "address",
+        internalType: "address",
+      },
+      {
+        name: "_pyusdToken",
+        type: "address",
+        internalType: "address",
+      },
+      {
+        name: "_pyusdLiquidity",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "mintAndAddLiquidity",
+    inputs: [
+      {
+        name: "_tokenAmount",
+        type: "uint256",
+        internalType: "uint256",
+      },
+      {
+        name: "_pyusdAmount",
         type: "uint256",
         internalType: "uint256",
       },
@@ -407,6 +434,19 @@ export const STORE_CONTRACT_ABI = [
   },
   {
     type: "function",
+    name: "pyusdToken",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "address",
+        internalType: "address",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "renounceOwnership",
     inputs: [],
     outputs: [],
@@ -491,6 +531,19 @@ export const STORE_CONTRACT_ABI = [
   },
   {
     type: "function",
+    name: "uniswapV2Router",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "address",
+        internalType: "address",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "updateProduct",
     inputs: [
       {
@@ -542,6 +595,31 @@ export const STORE_CONTRACT_ABI = [
       },
       {
         name: "newBalance",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "LiquidityAdded",
+    inputs: [
+      {
+        name: "tokenAmount",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+      {
+        name: "pyusdAmount",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+      {
+        name: "liquidity",
         type: "uint256",
         indexed: false,
         internalType: "uint256",
@@ -712,4 +790,4 @@ export const STORE_CONTRACT_ABI = [
       },
     ],
   },
-] as const;
+];

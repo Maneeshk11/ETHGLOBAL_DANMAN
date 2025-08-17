@@ -47,9 +47,15 @@ export default function StoreDemo() {
   const [productId, setProductId] = useState<string>("");
   const [productDetails, setProductDetails] = useState<Product | null>(null);
 
-  // Load store info on component mount
+  // Product list states
+  const [totalProductCount, setTotalProductCount] = useState<number>(0);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+
+  // Load store info and products on component mount
   useEffect(() => {
     loadStoreInfo();
+    loadAllProducts();
   }, []);
 
   const loadStoreInfo = async () => {
@@ -66,6 +72,77 @@ export default function StoreDemo() {
       setError("Failed to load store info. Store might not be initialized.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAllProducts = async () => {
+    try {
+      setLoadingProducts(true);
+      setError(null);
+
+      const startTime = performance.now();
+
+      // Get the next product ID to determine total count
+      const nextId = await getNextProductId();
+      const count = Number(nextId) - 1; // Total products = nextId - 1
+      setTotalProductCount(count);
+
+      if (count === 0) {
+        setAllProducts([]);
+        console.log("📦 No products to load");
+        return;
+      }
+
+      console.log(`📦 Loading ${count} products in parallel...`);
+
+      // Create array of promises to fetch all products simultaneously
+      const productPromises = [];
+      for (let i = 1; i <= count; i++) {
+        productPromises.push(
+          getProduct(BigInt(i))
+            .then((product) => ({ success: true, product, id: i }))
+            .catch((err) => ({ success: false, error: err, id: i }))
+        );
+      }
+
+      // Execute all promises in parallel
+      const results = await Promise.all(productPromises);
+
+      // Process results and extract successful products
+      const products: Product[] = [];
+      let failedCount = 0;
+
+      results.forEach((result) => {
+        if (result.success && "product" in result) {
+          products.push(result.product);
+          console.log(`✅ Loaded product ${result.id}:`, result.product);
+        } else if (!result.success && "error" in result) {
+          failedCount++;
+          console.warn(`❌ Failed to load product ${result.id}:`, result.error);
+        }
+      });
+
+      setAllProducts(products);
+
+      const endTime = performance.now();
+      const loadTime = (endTime - startTime).toFixed(2);
+
+      console.log(
+        `🎉 Loaded ${products.length} products successfully in ${loadTime}ms${
+          failedCount > 0 ? ` (${failedCount} failed)` : ""
+        }`
+      );
+
+      if (failedCount > 0) {
+        toast.warning(`Loaded ${products.length} products`, {
+          description: `${failedCount} products failed to load`,
+        });
+      }
+    } catch (err) {
+      console.error("Error loading products:", err);
+      setError("Failed to load products");
+    } finally {
+      setLoadingProducts(false);
     }
   };
 
@@ -118,8 +195,11 @@ export default function StoreDemo() {
           },
         });
 
-        // Clear form
+        // Clear form and refresh products list
         setProductForm({ name: "", description: "", price: "", stock: "" });
+
+        // Refresh the products list to show the new product
+        loadAllProducts();
       } catch (confirmError) {
         console.error("❌ Transaction confirmation failed:", confirmError);
 
@@ -353,6 +433,87 @@ export default function StoreDemo() {
                 <strong>Active:</strong>{" "}
                 {productDetails.isActive ? "Yes" : "No"}
               </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* All Products Display */}
+      <Card>
+        <CardHeader>
+          <CardTitle>All Products ({totalProductCount})</CardTitle>
+          <CardDescription>
+            Complete list of products in the store
+            {loadingProducts && " (Loading...)"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loadingProducts ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <span className="ml-2">Loading products...</span>
+            </div>
+          ) : allProducts.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No products found in the store.</p>
+              <p className="text-sm">
+                Add your first product using the form above!
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {allProducts.map((product) => (
+                <div
+                  key={product.id.toString()}
+                  className="border rounded-lg p-4 bg-muted/50"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-semibold text-lg">{product.name}</h4>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-mono bg-background px-2 py-1 rounded">
+                        ID: {product.id.toString()}
+                      </span>
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full ${
+                          product.isActive
+                            ? "bg-green-500/20 text-green-400"
+                            : "bg-red-500/20 text-red-400"
+                        }`}
+                      >
+                        {product.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-muted-foreground mb-3">
+                    {product.description}
+                  </p>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium">Price:</span>{" "}
+                      <span className="font-mono">
+                        {formatPrice(product.price)} ETH
+                      </span>
+                    </div>
+                    <div>
+                      <span className="font-medium">Stock:</span>{" "}
+                      <span className="font-mono">
+                        {product.stock.toString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Refresh button */}
+              <div className="flex justify-center pt-4">
+                <Button
+                  variant="outline"
+                  onClick={loadAllProducts}
+                  disabled={loadingProducts}
+                >
+                  🔄 Refresh Products
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
