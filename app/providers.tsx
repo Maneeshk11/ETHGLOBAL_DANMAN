@@ -2,21 +2,17 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
-import {
-  RainbowKitProvider,
-  darkTheme,
-  getDefaultConfig,
-} from "@rainbow-me/rainbowkit";
-import { metaMaskWallet, coinbaseWallet } from "@rainbow-me/rainbowkit/wallets";
+import { createConfig, http } from "wagmi";
 import { arbitrum, mainnet, sepolia, arbitrumSepolia } from "wagmi/chains";
 import { LOCAL_CHAIN } from "../lib/contracts";
-import { geminiWallet } from "../lib/geminiWallet";
+import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
+import { DynamicWagmiConnector } from "@dynamic-labs/wagmi-connector";
+import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
 
 const queryClient = new QueryClient();
 
-export const config = getDefaultConfig({
-  appName: "Token Shop",
-  projectId: "temp-project-id", // Minimal project ID for MetaMask/Coinbase only
+// Create Wagmi config for Dynamic
+export const config = createConfig({
   chains: [
     LOCAL_CHAIN, // Add local chain first for development
     mainnet,
@@ -24,33 +20,30 @@ export const config = getDefaultConfig({
     arbitrumSepolia,
     ...(process.env.NODE_ENV === "development" ? [sepolia] : []),
   ],
-  wallets: [
-    {
-      groupName: "Popular",
-      wallets: [
-        metaMaskWallet,
-        coinbaseWallet,
-        () => geminiWallet({ appName: "Token Shop" }),
-      ],
-    },
-  ],
-  ssr: false, // Disable SSR to prevent WalletConnect indexedDB errors
+  transports: {
+    [LOCAL_CHAIN.id]: http(),
+    [mainnet.id]: http(),
+    [arbitrum.id]: http(),
+    [arbitrumSepolia.id]: http(),
+    [sepolia.id]: http(),
+  },
 });
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <WagmiProvider config={config}>
-      <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider
-          theme={darkTheme({
-            accentColor: "#0E76FD",
-            accentColorForeground: "white",
-            borderRadius: "large",
-          })}
-        >
-          {children}
-        </RainbowKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+    <DynamicContextProvider
+      theme="auto"
+      settings={{
+        environmentId: "6f1b3b27-8d20-4360-bf9b-20c025ef505b",
+        walletConnectors: [EthereumWalletConnectors],
+        initialAuthenticationMode: "connect-only",
+      }}
+    >
+      <WagmiProvider config={config}>
+        <QueryClientProvider client={queryClient}>
+          <DynamicWagmiConnector>{children}</DynamicWagmiConnector>
+        </QueryClientProvider>
+      </WagmiProvider>
+    </DynamicContextProvider>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useAccount } from "wagmi";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
 
 interface WalletHeaderProps {
   title?: string;
@@ -57,9 +57,9 @@ export function WalletHeader({
               </div>
             )}
 
-            {/* RainbowKit Connect Button */}
+            {/* Dynamic Wallet Widget */}
             <div className="scale-90 sm:scale-100">
-              <ConnectButton />
+              <DynamicWidget />
             </div>
           </div>
         </div>

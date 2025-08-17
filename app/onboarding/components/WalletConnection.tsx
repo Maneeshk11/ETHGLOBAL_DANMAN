@@ -1,6 +1,6 @@
 "use client";
 
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
 import { useAccount } from "wagmi";
 import { useEffect } from "react";
 
@@ -33,7 +33,7 @@ export function WalletConnection({ onConnect }: WalletConnectionProps) {
         </span>
       </div>
       <div className="flex flex-col items-center space-y-4">
-        <ConnectButton />
+        <DynamicWidget />
 
         {isConnected && (
           <div className="text-center space-y-2">

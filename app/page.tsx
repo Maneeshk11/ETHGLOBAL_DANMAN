@@ -3,9 +3,9 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount } from "wagmi";
 import { useRouter } from "next/navigation";
+import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
 
 export default function Home() {
   const { isConnected, address } = useAccount();
@@ -37,7 +37,7 @@ export default function Home() {
               </Button>
             )}
             <div className="[&_button]:text-sm [&_button]:h-10">
-              <ConnectButton />
+              <DynamicWidget />
             </div>
           </div>
         </div>
@@ -176,7 +176,7 @@ export default function Home() {
                           </p>
                         </div>
                         <div>
-                          <ConnectButton />
+                          <DynamicWidget />
                         </div>
                       </div>
                     </div>
@@ -197,7 +197,7 @@ export default function Home() {
                               {address?.slice(0, 6)}...{address?.slice(-4)}
                             </p>
                           </div>
-                          <ConnectButton />
+                          <DynamicWidget />
                         </div>
                       </div>
 
@@ -294,7 +294,7 @@ export default function Home() {
                             Connect your wallet to view details
                           </p>
                         </div>
-                        <ConnectButton />
+                        <DynamicWidget />
                       </div>
                     </div>
                   </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useAccount } from "wagmi";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -200,7 +200,7 @@ export default function DashboardPage() {
                 <div className="flex flex-col space-y-3">
                   {/* Connect Wallet Button */}
                   <div className="flex justify-center">
-                    <ConnectButton />
+                    <DynamicWidget />
                   </div>
 
                   {/* Divider */}
