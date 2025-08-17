@@ -417,7 +417,7 @@ export default function DashboardPage() {
                           </span>
                         ) : userTokenBalance !== null ? (
                           <>
-                            {(Number(userTokenBalance) / 10 ** 18).toFixed(2)}{" "}
+                            {(Number(userTokenBalance) / 10 ** 6).toFixed(2)}{" "}
                             tokens
                           </>
                         ) : (
@@ -433,7 +433,7 @@ export default function DashboardPage() {
                         <div className="text-lg font-semibold">
                           {(
                             Number(storeInfo.tokenTotalSupply) /
-                            10 ** 18
+                            10 ** 24
                           ).toFixed(2)}{" "}
                           tokens
                         </div>
@@ -444,7 +444,7 @@ export default function DashboardPage() {
                         Store Token Reserve
                       </div>
                       <div className="text-lg font-semibold">
-                        {(Number(storeInfo.tokenBalance) / 10 ** 18).toFixed(2)}{" "}
+                        {(Number(storeInfo.tokenBalance) / 10 ** 6).toFixed(2)}{" "}
                         tokens
                       </div>
                       <div className="text-xs text-muted-foreground">

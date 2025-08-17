@@ -167,7 +167,7 @@ export default function ProductCreationModal({
               <div>Token: {storeInfo.name} Token</div>
               <div>
                 Your Balance:{" "}
-                {(Number(storeInfo.tokenBalance) / 10 ** 18).toFixed(2)} tokens
+                {(Number(storeInfo.tokenBalance) / 10 ** 6).toFixed(2)} tokens
               </div>
               {storeInfo.tokenTotalSupply && (
                 <div>

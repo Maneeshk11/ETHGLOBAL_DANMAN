@@ -39,7 +39,7 @@ export default function StoreCreation() {
     storeDescription: "",
     tokenName: "",
     tokenSymbol: "",
-    tokenDecimals: 18,
+    tokenDecimals: 6,
     initialTokenSupply: "",
   });
 
@@ -78,9 +78,7 @@ export default function StoreCreation() {
 
     try {
       setLoading(true);
-      const initialSupply =
-        BigInt(storeForm.initialTokenSupply) *
-        BigInt(10 ** storeForm.tokenDecimals);
+      const initialSupply = BigInt(storeForm.initialTokenSupply);
 
       console.log("🚀 Starting complete store creation process...");
 
@@ -124,7 +122,7 @@ export default function StoreCreation() {
         storeDescription: "",
         tokenName: "",
         tokenSymbol: "",
-        tokenDecimals: 18,
+        tokenDecimals: 6,
         initialTokenSupply: "",
       });
 
@@ -174,13 +172,12 @@ export default function StoreCreation() {
         duration: Infinity,
       });
 
-      const initialSupply =
-        BigInt(storeForm.initialTokenSupply || "1000") * BigInt(10 ** 18); // Using 18 decimals as standard
+      const initialSupply = BigInt(storeForm.initialTokenSupply || "1000"); // Using 6 decimals as standard
 
       // Get default liquidity values and addresses
       const uniswapRouter = getUniswapV2RouterAddress();
       const pyusdToken = getPyusdTokenAddress();
-      const pyusdLiquidity = BigInt(20) * BigInt(10 ** 6); // 20 PYUSD
+      const pyusdLiquidity = BigInt(20); // Contract handles decimals internally
 
       const initTxHash = await initializeStoreAtAddress(
         storeAddress,
