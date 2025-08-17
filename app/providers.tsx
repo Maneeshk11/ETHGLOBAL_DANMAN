@@ -11,15 +11,9 @@ import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
 
 const queryClient = new QueryClient();
 
-// Create Wagmi config for Dynamic
+// Simple Wagmi config with defaults
 export const config = createConfig({
-  chains: [
-    sepolia, // Always include Sepolia first since contracts are deployed there
-    LOCAL_CHAIN, // Add local chain for development
-    mainnet,
-    arbitrum,
-    arbitrumSepolia,
-  ],
+  chains: [sepolia, LOCAL_CHAIN, mainnet, arbitrum, arbitrumSepolia],
   transports: {
     [sepolia.id]: http(),
     [LOCAL_CHAIN.id]: http(),
@@ -27,8 +21,6 @@ export const config = createConfig({
     [arbitrum.id]: http(),
     [arbitrumSepolia.id]: http(),
   },
-  // Enable persistence and auto-connect
-  ssr: false, // Disable SSR for wallet connections
 });
 
 export default function Providers({ children }: { children: React.ReactNode }) {
@@ -40,22 +32,6 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         walletConnectors: [EthereumWalletConnectors],
         initialAuthenticationMode: "connect-only",
         appName: "Block Bazaar",
-        // Enable session persistence and auto-reconnect
-        enableVisitTrackingOnConnectOnly: false,
-        // Enhanced events for better debugging
-        events: {
-          onAuthSuccess: () => {
-            console.log("✅ Wallet connected successfully");
-          },
-          onLogout: () => {
-            console.log("👋 Wallet disconnected");
-          },
-          onAuthFailure: () => {
-            console.log("❌ Authentication failed");
-          },
-        },
-        // Advanced settings for stability
-        appLogoUrl: undefined, // Remove any custom logo to reduce load issues
       }}
     >
       <WagmiProvider config={config}>

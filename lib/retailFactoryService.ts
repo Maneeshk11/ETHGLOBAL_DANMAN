@@ -118,86 +118,23 @@ export const RETAIL_FACTORY_ABI = [
   },
 ] as const;
 
-// Create clients
+// Create clients with default settings
 export const getPublicClient = () => {
   const currentChain = getCurrentChain();
 
-  // Try to use wallet provider first if available
+  // Use wallet provider if available
   if (typeof window !== "undefined" && window.ethereum) {
-    try {
-      return createPublicClient({
-        chain: currentChain,
-        transport: custom(window.ethereum),
-      });
-    } catch (error) {
-      console.warn(
-        "Failed to create wallet client, falling back to HTTP:",
-        error
-      );
-    }
+    return createPublicClient({
+      chain: currentChain,
+      transport: custom(window.ethereum),
+    });
   }
 
-  // Use reliable RPC providers with fallback
-  let rpcUrls: string[];
-
-  if (currentChain.id === 11155111) {
-    // Sepolia - prioritize providers with full method support (HTTP)
-    rpcUrls = [
-      "http://rpc.ankr.com/eth_sepolia",
-      "http://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", // Public Infura
-      "http://eth-sepolia.g.alchemy.com/v2/demo", // Public Alchemy
-      "http://rpc2.sepolia.org",
-      "http://rpc.sepolia.org",
-    ];
-  } else if (currentChain.id === 31337) {
-    // Local Anvil
-    rpcUrls = ["http://127.0.0.1:8545"];
-  } else if (currentChain.id === 1) {
-    // Mainnet
-    rpcUrls = [
-      "http://rpc.ankr.com/eth",
-      "http://eth.llamarpc.com",
-      "http://rpc.flashbots.net",
-    ];
-  } else {
-    rpcUrls = [...currentChain.rpcUrls.default.http];
-  }
-
-  // Try each RPC URL until one works
-  let lastError: Error | null = null;
-
-  for (const rpcUrl of rpcUrls) {
-    try {
-      console.log(`🔗 Trying RPC provider: ${rpcUrl}`);
-
-      const client = createPublicClient({
-        chain: currentChain,
-        transport: http(rpcUrl, {
-          timeout: 15000, // 15 second timeout
-          retryCount: 2,
-          retryDelay: 1000, // 1 second between retries
-        }),
-      });
-
-      console.log(`✅ Successfully connected to RPC: ${rpcUrl}`);
-      return client;
-    } catch (error) {
-      lastError =
-        error instanceof Error
-          ? error
-          : new Error(`Failed to connect to ${rpcUrl}`);
-      console.warn(`Failed to connect to RPC ${rpcUrl}:`, error);
-      continue;
-    }
-  }
-
-  // Final fallback
-  console.error("❌ All RPC providers failed, last error:", lastError);
-  throw new Error(
-    `Unable to create public client with any RPC provider. Last error: ${
-      lastError?.message || "Unknown error"
-    }`
-  );
+  // Fallback to default HTTP transport
+  return createPublicClient({
+    chain: currentChain,
+    transport: http(),
+  });
 };
 
 export const getWalletClient = () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
-import { useWalletPersistence } from "../../lib/useWalletPersistence";
+import { useAccount } from "wagmi";
 
 interface WalletHeaderProps {
   title?: string;
@@ -12,7 +12,7 @@ export function WalletHeader({
   title = "Block Bazaar",
   showTitle = true,
 }: WalletHeaderProps) {
-  const { isConnected, address } = useWalletPersistence();
+  const { isConnected, address } = useAccount();
 
   const formatAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;

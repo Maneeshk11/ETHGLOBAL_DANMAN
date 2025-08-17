@@ -1,6 +1,6 @@
 "use client";
 
-import { useWalletPersistence } from "../../lib/useWalletPersistence";
+import { useAccount } from "wagmi";
 import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,7 +40,7 @@ import StoreInitializationModal from "../components/StoreInitializationModal";
 import ProductCreationModal from "../components/ProductCreationModal";
 
 export default function DashboardPage() {
-  const { isConnected, isConnecting, address } = useWalletPersistence();
+  const { isConnected, isConnecting, address } = useAccount();
   const router = useRouter();
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
 
