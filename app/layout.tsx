@@ -3,7 +3,7 @@ import { Fira_Code, Outfit, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
 import { Toaster } from "@/components/ui/sonner";
-import { WalletAutoConnect } from "./components/WalletAutoConnect";
+import { AutoReconnect } from "../lib/components/AutoReconnect";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -37,7 +37,7 @@ export default function RootLayout({
         className={`${outfit.variable} ${firaCode.variable} ${playfairDisplay.variable} antialiased font-sans`}
       >
         <Providers>
-          <WalletAutoConnect />
+          <AutoReconnect />
           {children}
           <Toaster position="top-right" />
         </Providers>

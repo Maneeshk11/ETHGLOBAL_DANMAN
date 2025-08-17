@@ -33,6 +33,7 @@ import {
   StoreInfo,
   getAllProductsFromStore,
   Product,
+  getUserTokenBalance,
 } from "../../lib/storeService";
 import { toast } from "sonner";
 import StoreInitializationModal from "../components/StoreInitializationModal";
@@ -53,6 +54,8 @@ export default function DashboardPage() {
   const [isLoadingStores, setIsLoadingStores] = useState(false);
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null);
   const [isLoadingStoreInfo, setIsLoadingStoreInfo] = useState(false);
+  const [userTokenBalance, setUserTokenBalance] = useState<bigint | null>(null);
+  const [isLoadingUserBalance, setIsLoadingUserBalance] = useState(false);
 
   // Store creation modal state
   const [showInitModal, setShowInitModal] = useState(false);
@@ -66,9 +69,10 @@ export default function DashboardPage() {
 
   const handleProductSuccess = (productId: number) => {
     console.log("Product created successfully:", productId);
-    // Refresh the product list if a store is selected
+    // Refresh the product list and balances if a store is selected
     if (selectedStore) {
       loadStoreProducts();
+      loadUserTokenBalance(selectedStore);
     }
   };
 
@@ -120,6 +124,24 @@ export default function DashboardPage() {
     }
   };
 
+  const loadUserTokenBalance = async (storeAddress: Address) => {
+    if (!address) return;
+
+    try {
+      setIsLoadingUserBalance(true);
+      console.log("💰 Loading user token balance for store:", storeAddress);
+      const balance = await getUserTokenBalance(storeAddress, address);
+      setUserTokenBalance(balance);
+      console.log("✅ User token balance loaded:", balance.toString());
+    } catch (error) {
+      console.error("❌ Error loading user token balance:", error);
+      // Don't show error toast for balance - it's not critical
+      setUserTokenBalance(null);
+    } finally {
+      setIsLoadingUserBalance(false);
+    }
+  };
+
   const handleStoreInitialized = async (storeAddress: Address) => {
     // Refresh stores and select the new one
     await loadUserStores();
@@ -153,11 +175,13 @@ export default function DashboardPage() {
     if (selectedStore) {
       loadStoreInfo(selectedStore);
       loadStoreProducts();
+      loadUserTokenBalance(selectedStore);
     } else {
       setStoreInfo(null);
       setStoreProducts([]);
+      setUserTokenBalance(null);
     }
-  }, [selectedStore]);
+  }, [selectedStore, address]);
 
   // Product creation success is handled in the modal callback
 
@@ -387,8 +411,18 @@ export default function DashboardPage() {
                         Your Token Balance
                       </div>
                       <div className="text-lg font-semibold">
-                        {(Number(storeInfo.tokenBalance) / 10 ** 18).toFixed(2)}{" "}
-                        tokens
+                        {isLoadingUserBalance ? (
+                          <span className="text-muted-foreground">
+                            Loading...
+                          </span>
+                        ) : userTokenBalance !== null ? (
+                          <>
+                            {(Number(userTokenBalance) / 10 ** 18).toFixed(2)}{" "}
+                            tokens
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">--</span>
+                        )}
                       </div>
                     </div>
                     {storeInfo.tokenTotalSupply && (
@@ -405,6 +439,18 @@ export default function DashboardPage() {
                         </div>
                       </div>
                     )}
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <div className="text-sm text-muted-foreground">
+                        Store Token Reserve
+                      </div>
+                      <div className="text-lg font-semibold">
+                        {(Number(storeInfo.tokenBalance) / 10 ** 18).toFixed(2)}{" "}
+                        tokens
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Available for distribution
+                      </div>
+                    </div>
                     <div className="p-3 bg-muted/50 rounded-lg">
                       <div className="text-sm text-muted-foreground">
                         Created

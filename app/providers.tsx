@@ -39,8 +39,23 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         environmentId: "6f1b3b27-8d20-4360-bf9b-20c025ef505b",
         walletConnectors: [EthereumWalletConnectors],
         initialAuthenticationMode: "connect-only",
-        // Enable auto-connect to persist wallet connections
         appName: "Block Bazaar",
+        // Enable session persistence and auto-reconnect
+        enableVisitTrackingOnConnectOnly: false,
+        // Enhanced events for better debugging
+        events: {
+          onAuthSuccess: () => {
+            console.log("✅ Wallet connected successfully");
+          },
+          onLogout: () => {
+            console.log("👋 Wallet disconnected");
+          },
+          onAuthFailure: () => {
+            console.log("❌ Authentication failed");
+          },
+        },
+        // Advanced settings for stability
+        appLogoUrl: undefined, // Remove any custom logo to reduce load issues
       }}
     >
       <WagmiProvider config={config}>

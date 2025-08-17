@@ -15,6 +15,7 @@ import { useState, useEffect } from "react";
 import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
 import { getAllStoresWithInfo } from "../lib/retailFactoryService";
 import { Address } from "viem";
+import StoreDetailsModal from "./components/StoreDetailsModal";
 
 type StoreWithInfo = {
   owner: Address;
@@ -32,6 +33,12 @@ export default function Home() {
   const router = useRouter();
   const [allStores, setAllStores] = useState<StoreWithInfo[]>([]);
   const [isLoadingStores, setIsLoadingStores] = useState(false);
+
+  // Modal state
+  const [selectedStore, setSelectedStore] = useState<StoreWithInfo | null>(
+    null
+  );
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleRetailLogin = () => {
     router.push("/dashboard");
@@ -55,6 +62,16 @@ export default function Home() {
   useEffect(() => {
     loadAllStores();
   }, []);
+
+  const handleVisitStore = (store: StoreWithInfo) => {
+    setSelectedStore(store);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedStore(null);
+  };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
@@ -115,82 +132,109 @@ export default function Home() {
                       </div>
                     ) : allStores.length > 0 ? (
                       <div className="grid gap-4">
-                        {allStores.map((store, index) => (
-                          <Card
-                            key={`${store.store}-${index}`}
-                            className="border-2 border-border/50 hover:border-purple-500/50 transition-colors"
-                          >
-                            <CardHeader>
-                              <CardTitle className="text-lg">
-                                {store.storeInfo?.name || "Unnamed Store"}
-                              </CardTitle>
-                              <CardDescription>
-                                {store.storeInfo?.description ||
-                                  "No description available"}
-                              </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                              <div className="space-y-2">
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-muted-foreground">
-                                    Store Address:
-                                  </span>
-                                  <span className="font-mono text-xs">
-                                    {store.store.slice(0, 6)}...
-                                    {store.store.slice(-4)}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-muted-foreground">
-                                    Owner:
-                                  </span>
-                                  <span className="font-mono text-xs">
-                                    {store.owner.slice(0, 6)}...
-                                    {store.owner.slice(-4)}
-                                  </span>
-                                </div>
-                                {store.storeInfo?.tokenAddress && (
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">
-                                      Token:
-                                    </span>
-                                    <span className="font-mono text-xs">
-                                      {store.storeInfo.tokenAddress.slice(0, 6)}
-                                      ...
-                                      {store.storeInfo.tokenAddress.slice(-4)}
+                        {allStores.map((store, index) => {
+                          const hasRealInfo =
+                            store.storeInfo?.tokenAddress !==
+                            "0x0000000000000000000000000000000000000000";
+
+                          return (
+                            <Card
+                              key={`${store.store}-${index}`}
+                              className="border-2 border-border/50 hover:border-purple-500/50 transition-colors"
+                            >
+                              <CardHeader>
+                                <div className="flex items-center justify-between">
+                                  <CardTitle className="text-lg">
+                                    {store.storeInfo?.name || "Unnamed Store"}
+                                  </CardTitle>
+                                  <div className="flex items-center gap-2">
+                                    {hasRealInfo ? (
+                                      <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
+                                        ✓ Loaded
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+                                        ⚠ Basic Info
+                                      </span>
+                                    )}
+                                    <span
+                                      className={`px-2 py-1 text-xs rounded-full ${
+                                        store.storeInfo?.isActive
+                                          ? "bg-green-100 text-green-800"
+                                          : "bg-gray-100 text-gray-800"
+                                      }`}
+                                    >
+                                      {store.storeInfo?.isActive
+                                        ? "Active"
+                                        : "Inactive"}
                                     </span>
                                   </div>
-                                )}
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-muted-foreground">
-                                    Status:
-                                  </span>
-                                  <span
-                                    className={`font-medium ${
-                                      store.storeInfo?.isActive
-                                        ? "text-green-600"
-                                        : "text-gray-500"
-                                    }`}
-                                  >
-                                    {store.storeInfo?.isActive
-                                      ? "Active"
-                                      : "Inactive"}
-                                  </span>
                                 </div>
-                              </div>
-                              <Button
-                                variant="outline"
-                                className="w-full mt-4"
-                                onClick={() => {
-                                  // Navigate to store details or implement store visit logic
-                                  console.log("Visiting store:", store.store);
-                                }}
-                              >
-                                Visit Store
-                              </Button>
-                            </CardContent>
-                          </Card>
-                        ))}
+                                <CardDescription>
+                                  {store.storeInfo?.description ||
+                                    "No description available"}
+                                </CardDescription>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="space-y-3">
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">
+                                      Store Address:
+                                    </span>
+                                    <span className="font-mono text-xs">
+                                      {store.store.slice(0, 6)}...
+                                      {store.store.slice(-4)}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">
+                                      Owner:
+                                    </span>
+                                    <span className="font-mono text-xs">
+                                      {store.owner.slice(0, 6)}...
+                                      {store.owner.slice(-4)}
+                                    </span>
+                                  </div>
+                                  {store.storeInfo?.tokenAddress &&
+                                    store.storeInfo.tokenAddress !==
+                                      "0x0000000000000000000000000000000000000000" && (
+                                      <div className="flex justify-between text-sm">
+                                        <span className="text-muted-foreground">
+                                          Token Address:
+                                        </span>
+                                        <span className="font-mono text-xs">
+                                          {store.storeInfo.tokenAddress.slice(
+                                            0,
+                                            6
+                                          )}
+                                          ...
+                                          {store.storeInfo.tokenAddress.slice(
+                                            -4
+                                          )}
+                                        </span>
+                                      </div>
+                                    )}
+                                  {!hasRealInfo && (
+                                    <div className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded">
+                                      ⚠️ Limited info due to RPC constraints.
+                                      Full details may be available when
+                                      visiting the store.
+                                    </div>
+                                  )}
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  className="w-full mt-4"
+                                  onClick={() => {
+                                    handleVisitStore(store);
+                                  }}
+                                >
+                                  Visit Store
+                                </Button>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
                       </div>
                     ) : (
                       <Card className="border-dashed border-2">
@@ -453,6 +497,16 @@ export default function Home() {
           </Tabs>
         </div>
       </Card>
+
+      {selectedStore && (
+        <StoreDetailsModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          storeAddress={selectedStore.store}
+          ownerAddress={selectedStore.owner}
+          storeInfo={selectedStore.storeInfo}
+        />
+      )}
     </div>
   );
 }

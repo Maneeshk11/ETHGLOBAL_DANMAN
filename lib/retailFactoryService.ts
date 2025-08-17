@@ -141,13 +141,13 @@ export const getPublicClient = () => {
   let rpcUrls: string[];
 
   if (currentChain.id === 11155111) {
-    // Sepolia - prioritize providers with full method support
+    // Sepolia - prioritize providers with full method support (HTTP)
     rpcUrls = [
-      "https://rpc.ankr.com/eth_sepolia",
-      "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", // Public Infura
-      "https://eth-sepolia.g.alchemy.com/v2/demo", // Public Alchemy
-      "https://rpc2.sepolia.org",
-      "https://rpc.sepolia.org",
+      "http://rpc.ankr.com/eth_sepolia",
+      "http://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", // Public Infura
+      "http://eth-sepolia.g.alchemy.com/v2/demo", // Public Alchemy
+      "http://rpc2.sepolia.org",
+      "http://rpc.sepolia.org",
     ];
   } else if (currentChain.id === 31337) {
     // Local Anvil
@@ -155,9 +155,9 @@ export const getPublicClient = () => {
   } else if (currentChain.id === 1) {
     // Mainnet
     rpcUrls = [
-      "https://rpc.ankr.com/eth",
-      "https://eth.llamarpc.com",
-      "https://rpc.flashbots.net",
+      "http://rpc.ankr.com/eth",
+      "http://eth.llamarpc.com",
+      "http://rpc.flashbots.net",
     ];
   } else {
     rpcUrls = [...currentChain.rpcUrls.default.http];
@@ -484,6 +484,7 @@ export async function createAndInitializeStore(
 
 /**
  * Get all stores with their basic information for homepage display
+ * Attempts to fetch real store info with graceful fallbacks for RPC limitations
  */
 export async function getAllStoresWithInfo(): Promise<
   {
@@ -500,43 +501,91 @@ export async function getAllStoresWithInfo(): Promise<
   try {
     const stores = await getAllStoresFromFactory();
 
-    console.log(`🔍 Getting detailed info for ${stores.length} stores...`);
+    console.log(`📋 Found ${stores.length} stores from factory`);
 
-    // Get store info for each store in parallel
-    const storePromises = stores.map(async (store) => {
+    if (stores.length === 0) {
+      console.log("📭 No stores found in factory");
+      return [];
+    }
+
+    console.log(
+      `🔍 Attempting to get detailed info for ${stores.length} stores...`
+    );
+
+    // Try to get store info for each store with better error handling
+    const storePromises = stores.map(async (store, index) => {
       try {
+        console.log(
+          `📖 Fetching info for store ${index + 1}/${stores.length}: ${
+            store.store
+          }`
+        );
+
         // Import here to avoid circular dependency
         const { getStoreInfoByAddress } = await import("./storeService");
         const storeInfo = await getStoreInfoByAddress(store.store);
+
+        console.log(`✅ Successfully got info for store ${store.store}:`, {
+          name: storeInfo.name,
+          description: storeInfo.description,
+          isActive: storeInfo.isActive,
+        });
+
         return {
           ...store,
           storeInfo: {
-            name: storeInfo.name,
-            description: storeInfo.description,
+            name: storeInfo.name || `Store ${index + 1}`,
+            description:
+              storeInfo.description ||
+              `Store at ${store.store.substring(0, 8)}...`,
             isActive: storeInfo.isActive,
             tokenAddress: storeInfo.tokenAddress,
           },
         };
       } catch (error) {
-        console.warn(`Failed to get info for store ${store.store}:`, error);
+        console.warn(`⚠️ Failed to get info for store ${store.store}:`, error);
+
+        // Create meaningful fallback info
+        const fallbackName = `Store ${index + 1}`;
+        const shortAddress = `${store.store.substring(
+          0,
+          6
+        )}...${store.store.substring(store.store.length - 4)}`;
+
         return {
           ...store,
-          storeInfo: undefined,
+          storeInfo: {
+            name: fallbackName,
+            description: `Store Contract: ${shortAddress}`,
+            isActive: true, // Assume active since it exists in factory
+            tokenAddress:
+              "0x0000000000000000000000000000000000000000" as Address,
+          },
         };
       }
     });
 
     const storesWithInfo = await Promise.all(storePromises);
 
+    const successCount = storesWithInfo.filter(
+      (s) =>
+        s.storeInfo &&
+        s.storeInfo.tokenAddress !==
+          "0x0000000000000000000000000000000000000000"
+    ).length;
+
     console.log(
-      `✅ Got detailed info for ${
-        storesWithInfo.filter((s) => s.storeInfo).length
-      }/${stores.length} stores`
+      `✅ Successfully got detailed info for ${successCount}/${stores.length} stores`
     );
+    console.log(`📋 Returning ${storesWithInfo.length} stores with info`);
+
     return storesWithInfo;
   } catch (error) {
     console.error("❌ Error getting all stores with info:", error);
-    throw error;
+
+    // If everything fails, return empty array instead of throwing
+    console.log("🔄 Falling back to empty store list due to errors");
+    return [];
   }
 }
 

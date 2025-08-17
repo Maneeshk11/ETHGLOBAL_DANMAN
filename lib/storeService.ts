@@ -1,5 +1,4 @@
 import {
-  createPublicClient,
   createWalletClient,
   custom,
   parseEther,
@@ -7,7 +6,6 @@ import {
   Address,
   parseUnits,
   decodeEventLog,
-  http,
 } from "viem";
 import {
   getContractAddress,
@@ -15,6 +13,7 @@ import {
   STORE_CONTRACT_ADDRESS,
 } from "./contracts";
 import { STORE_CONTRACT_ABI } from "./storeABI";
+import { getPublicClient } from "./retailFactoryService";
 
 // ERC-20 ABI for approve and transfer functions
 const ERC20_ABI = [
@@ -91,26 +90,6 @@ export interface StoreInfo {
   isActive: boolean;
   createdAt: bigint;
 }
-
-// Create a public client for reading from the blockchain
-export const getPublicClient = () => {
-  const currentChain = getCurrentChain();
-
-  if (typeof window !== "undefined" && window.ethereum) {
-    return createPublicClient({
-      chain: currentChain,
-      transport: custom(window.ethereum),
-    });
-  }
-
-  // Fallback to HTTP transport for SSR
-  const rpcUrl = currentChain.rpcUrls.default.http[0]; // Use the current chain's RPC URL
-
-  return createPublicClient({
-    chain: currentChain,
-    transport: http(rpcUrl),
-  });
-};
 
 // Create a wallet client for writing to the blockchain
 export const getWalletClient = () => {
@@ -263,7 +242,7 @@ export async function getStoreTokenTotalSupply(
     const tokenAddress = (await publicClient.readContract({
       address: storeAddress,
       abi: STORE_CONTRACT_ABI,
-      functionName: "tokenAddress",
+      functionName: "storeToken",
     })) as Address;
 
     console.log("🪙 Getting total supply for token:", tokenAddress);
@@ -701,7 +680,7 @@ export async function getStoreInfoByAddress(
       functionName: "getStoreInfo",
     })) as StoreInfo;
 
-    // Get token total supply
+    // Get token total supply - skip if RPC doesn't support it
     try {
       const tokenTotalSupply = await getStoreTokenTotalSupply(storeAddress);
       return {
@@ -709,7 +688,10 @@ export async function getStoreInfoByAddress(
         tokenTotalSupply,
       };
     } catch (totalSupplyError) {
-      console.warn("Could not get token total supply:", totalSupplyError);
+      console.warn(
+        "Could not get token total supply (skipping due to RPC limitations):",
+        totalSupplyError
+      );
       // Return store info without total supply if it fails
       return storeInfo;
     }
@@ -1058,6 +1040,46 @@ export async function withdrawTokens(
     return hash;
   } catch (error) {
     console.error("Error withdrawing tokens:", error);
+    throw error;
+  }
+}
+
+/**
+ * Get user's token balance for a specific store token
+ */
+export async function getUserTokenBalance(
+  storeAddress: Address,
+  userAddress: Address
+): Promise<bigint> {
+  try {
+    const publicClient = getPublicClient();
+
+    // First get the store's token address
+    const tokenAddress = (await publicClient.readContract({
+      address: storeAddress,
+      abi: STORE_CONTRACT_ABI,
+      functionName: "storeToken",
+    })) as Address;
+
+    // Then get the user's balance of that token using ERC20 balanceOf
+    const balance = await publicClient.readContract({
+      address: tokenAddress,
+      abi: [
+        {
+          name: "balanceOf",
+          type: "function",
+          stateMutability: "view",
+          inputs: [{ name: "account", type: "address" }],
+          outputs: [{ name: "", type: "uint256" }],
+        },
+      ],
+      functionName: "balanceOf",
+      args: [userAddress],
+    });
+
+    return balance as bigint;
+  } catch (error) {
+    console.error("Error getting user token balance:", error);
     throw error;
   }
 }
