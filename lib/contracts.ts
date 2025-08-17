@@ -1,5 +1,6 @@
-// Contract configuration for locally deployed contracts
+// Contract configuration for multiple networks
 import { Address } from "viem";
+import { sepolia } from "viem/chains";
 
 // Local development chain configuration (Foundry Anvil)
 export const LOCAL_CHAIN = {
@@ -17,15 +18,53 @@ export const LOCAL_CHAIN = {
   },
 } as const;
 
-// Contract addresses - UPDATE THESE WITH YOUR DEPLOYED CONTRACT ADDRESSES
-export const CONTRACT_ADDRESSES = {
-  // Replace with your actual deployed contract address
-  TOKEN_FACTORY: "0x5FbDB2315678afecb367f032d93F642f64180aa3" as Address, // Default first contract address from Anvil
-  // Add more contract addresses as needed
+// Supported chains
+export const SUPPORTED_CHAINS = {
+  LOCAL: LOCAL_CHAIN,
+  SEPOLIA: sepolia,
 } as const;
 
-// Token Factory Contract ABI
-// UPDATE THIS WITH YOUR ACTUAL CONTRACT ABI
+// Contract addresses by network
+export const CONTRACT_ADDRESSES: Record<
+  number,
+  {
+    TOKEN_FACTORY: Address;
+    STORE_CONTRACT: Address;
+  }
+> = {
+  [LOCAL_CHAIN.id]: {
+    TOKEN_FACTORY: "0x5FbDB2315678afecb367f032d93F642f64180aa3" as Address, // Default Anvil address
+    STORE_CONTRACT: "0x5FbDB2315678afecb367f032d93F642f64180aa3" as Address, // Local store for testing
+  },
+  [sepolia.id]: {
+    TOKEN_FACTORY: "0x85d6F0f1b61992d18AF39ebd520b5209418900a3" as Address, // Legacy - can be updated later
+    STORE_CONTRACT: "0x85d6F0f1b61992d18AF39ebd520b5209418900a3" as Address, // Your actual store contract
+  },
+};
+
+// Get contract address for current network
+export const getContractAddress = (
+  chainId: number,
+  contractName: "TOKEN_FACTORY" | "STORE_CONTRACT"
+) => {
+  const addresses = CONTRACT_ADDRESSES[chainId];
+  if (!addresses) {
+    throw new Error(`Contract addresses not configured for chain ${chainId}`);
+  }
+  return addresses[contractName];
+};
+
+// Get current chain configuration
+export const getCurrentChain = () => {
+  // Always use Sepolia since that's where your contract is deployed
+  return sepolia;
+};
+
+// Store Contract Address (single instance for testing)
+export const STORE_CONTRACT_ADDRESS =
+  "0x85d6F0f1b61992d18AF39ebd520b5209418900a3" as Address;
+
+// Token Factory Contract ABI (legacy - keeping for now)
 export const TOKEN_FACTORY_ABI = [
   {
     inputs: [

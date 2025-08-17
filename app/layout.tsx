@@ -3,6 +3,7 @@ import { Outfit, Fira_Code, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import "@rainbow-me/rainbowkit/styles.css";
 import Providers from "./providers";
+import { Toaster } from "@/components/ui/sonner";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -35,6 +36,7 @@ export default function RootLayout({
         className={`${outfit.variable} ${firaCode.variable} ${playfairDisplay.variable} antialiased font-sans`}
       >
         <Providers>{children}</Providers>
+        <Toaster />
       </body>
     </html>
   );

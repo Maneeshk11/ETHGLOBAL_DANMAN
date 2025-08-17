@@ -10,24 +10,29 @@ import {
   http,
 } from "viem";
 import {
-  CONTRACT_ADDRESSES,
+  getContractAddress,
+  getCurrentChain,
   TOKEN_FACTORY_ABI,
   ERC20_ABI,
-  LOCAL_CHAIN,
 } from "./contracts";
 
 // Create a public client for reading from the blockchain
 export const getPublicClient = () => {
+  const currentChain = getCurrentChain();
+
   if (typeof window !== "undefined" && window.ethereum) {
     return createPublicClient({
-      chain: LOCAL_CHAIN,
+      chain: currentChain,
       transport: custom(window.ethereum),
     });
   }
+
   // Fallback to HTTP transport for SSR
+  const rpcUrl = currentChain.rpcUrls.default.http[0]; // Use the current chain's RPC URL
+
   return createPublicClient({
-    chain: LOCAL_CHAIN,
-    transport: http("http://127.0.0.1:8545"),
+    chain: currentChain,
+    transport: http(rpcUrl),
   });
 };
 
@@ -35,11 +40,30 @@ export const getPublicClient = () => {
 export const getWalletClient = () => {
   if (typeof window !== "undefined" && window.ethereum) {
     return createWalletClient({
-      chain: LOCAL_CHAIN,
+      chain: getCurrentChain(),
       transport: custom(window.ethereum),
     });
   }
   throw new Error("No ethereum provider found");
+};
+
+// Get the current chain ID from the wallet or default
+export const getCurrentChainId = async (): Promise<number> => {
+  if (typeof window !== "undefined" && window.ethereum) {
+    try {
+      const chainId = await (
+        window.ethereum as unknown as {
+          request: (args: { method: string }) => Promise<string>;
+        }
+      ).request({
+        method: "eth_chainId",
+      });
+      return parseInt(chainId as string, 16);
+    } catch (error) {
+      console.warn("Could not get chain ID from wallet, using default");
+    }
+  }
+  return getCurrentChain().id;
 };
 
 // Interface for token creation parameters
@@ -69,13 +93,15 @@ export async function createToken(
   try {
     const walletClient = getWalletClient();
     const publicClient = getPublicClient();
+    const chainId = await getCurrentChainId();
+    const tokenFactoryAddress = getContractAddress(chainId, "TOKEN_FACTORY");
 
     // Convert initial supply to wei (assuming 18 decimals)
     const supplyInWei = parseUnits(params.initialSupply.toString(), 18);
 
     // Call the createToken function
     const hash = await walletClient.writeContract({
-      address: CONTRACT_ADDRESSES.TOKEN_FACTORY,
+      address: tokenFactoryAddress,
       abi: TOKEN_FACTORY_ABI,
       functionName: "createToken",
       args: [params.name, params.symbol, supplyInWei, walletAddress],
@@ -118,8 +144,11 @@ export async function getTokensForOwner(
 ): Promise<Address[]> {
   try {
     const publicClient = getPublicClient();
+    const chainId = await getCurrentChainId();
+    const tokenFactoryAddress = getContractAddress(chainId, "TOKEN_FACTORY");
+
     const tokens = (await publicClient.readContract({
-      address: CONTRACT_ADDRESSES.TOKEN_FACTORY,
+      address: tokenFactoryAddress,
       abi: TOKEN_FACTORY_ABI,
       functionName: "getTokensForOwner",
       args: [ownerAddress],

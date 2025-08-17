@@ -19,6 +19,7 @@ import {
 } from "../components/TokenConfigurationModal";
 import { getAllTokensInfo, TokenInfo } from "../../lib/contractService";
 import { Address } from "viem";
+import StoreDemo from "../components/StoreDemo";
 
 export default function DashboardPage() {
   const { isConnected, isConnecting, address } = useAccount();
@@ -312,6 +313,9 @@ export default function DashboardPage() {
         onClose={() => setIsTokenModalOpen(false)}
         onSubmit={handleTokenSubmit}
       />
+
+      {/* Store Demo */}
+      <StoreDemo />
     </div>
   );
 }
